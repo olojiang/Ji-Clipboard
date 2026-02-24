@@ -20,31 +20,22 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./Pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build
-        run: npm run build
-
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
+      - name: Copy Pages to dist
+        run: |
+          mkdir -p dist
+          cp Pages/index.html dist/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './Pages/dist'
+          path: './dist'
 
   deploy:
     environment:
