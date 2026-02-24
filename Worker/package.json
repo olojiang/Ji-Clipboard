@@ -1,0 +1,16 @@
+{
+  "name": "ji-clipboard-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "wrangler check",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "^3.109.0",
+    "@cloudflare/workers-types": "^4.20250224.0"
+  }
+}
