@@ -26,6 +26,10 @@ const myClipboards = ref<Array<{
 const clipboardsLoading = ref(false)
 const clipboardsError = ref('')
 
+// 多选模式状态
+const isMultiSelectMode = ref(false)
+const selectedItems = ref<Set<number>>(new Set())
+
 // 长按和滑动状态
 const longPressTimer = ref<number | null>(null)
 const LONG_PRESS_DURATION = 800
@@ -193,8 +197,56 @@ async function deleteClipboard(index: number) {
   }
 }
 
+// 切换选择状态
+function toggleSelection(index: number) {
+  if (selectedItems.value.has(index)) {
+    selectedItems.value.delete(index)
+  } else {
+    selectedItems.value.add(index)
+  }
+}
+
+// 退出多选模式
+function exitMultiSelectMode() {
+  isMultiSelectMode.value = false
+  selectedItems.value.clear()
+}
+
+// 删除选中的项目
+async function deleteSelected() {
+  const indices = Array.from(selectedItems.value).sort((a, b) => b - a)
+  
+  for (const index of indices) {
+    try {
+      const sessionId = localStorage.getItem('session_id')
+      let url = `${API_BASE}/api/clipboard-items/${index}`
+      if (sessionId) {
+        url += `?session=${sessionId}`
+      }
+
+      await fetch(url, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+    } catch (error) {
+      console.error('删除失败:', error)
+    }
+  }
+  
+  selectedItems.value.clear()
+  isMultiSelectMode.value = false
+  await fetchMyClipboards()
+  emit('showToast', `已删除 ${indices.length} 项`)
+}
+
 // 触摸开始
-function handleTouchStart(event: TouchEvent, item: any) {
+function handleTouchStart(event: TouchEvent, item: any, index: number) {
+  // 如果已经在多选模式，直接返回
+  if (isMultiSelectMode.value) return
+  
   // 停止之前的动画
   if (animationFrame) {
     cancelAnimationFrame(animationFrame)
@@ -222,6 +274,9 @@ function handleTouchStart(event: TouchEvent, item: any) {
 
 // 触摸移动
 function handleTouchMove(event: TouchEvent, item: any) {
+  // 如果已经在多选模式，不处理滑动
+  if (isMultiSelectMode.value) return
+  
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
@@ -230,7 +285,6 @@ function handleTouchMove(event: TouchEvent, item: any) {
   const currentX = event.touches[0].clientX
   const currentTime = Date.now()
   
-  // 计算速度
   const deltaX = currentX - lastX.value
   const deltaTime = currentTime - lastTime.value
   if (deltaTime > 0) {
@@ -270,7 +324,10 @@ function handleTouchMove(event: TouchEvent, item: any) {
 }
 
 // 触摸结束 - 添加惯性回弹
-function handleTouchEnd(event: TouchEvent, item: any) {
+function handleTouchEnd(event: TouchEvent, item: any, index: number) {
+  // 如果已经在多选模式，不处理
+  if (isMultiSelectMode.value) return
+  
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
@@ -310,6 +367,14 @@ function handleTouchEnd(event: TouchEvent, item: any) {
       item.swipeLeft = false
       item.swipeRight = false
       hasVibrated = false
+      
+      // 如果右滑超过阈值，进入多选模式
+      if (item.swipeRight) {
+        isMultiSelectMode.value = true
+        selectedItems.value.clear()
+        selectedItems.value.add(index)
+      }
+      
       return
     }
     
@@ -342,11 +407,20 @@ function handleTouchEnd(event: TouchEvent, item: any) {
 
     <!-- 已登录状态 -->
     <template v-else>
+      <!-- 多选模式工具栏 -->
+      <div v-if="isMultiSelectMode" class="multi-select-toolbar">
+        <span>已选择 {{ selectedItems.size }} 项</span>
+        <div class="toolbar-actions">
+          <mdui-button variant="text" @click="exitMultiSelectMode">取消</mdui-button>
+          <mdui-button variant="filled" @click="deleteSelected" :disabled="selectedItems.size === 0">删除</mdui-button>
+        </div>
+      </div>
+
       <!-- 我的剪贴板列表 -->
       <mdui-card class="clipboard-list-card">
         <div class="clipboard-list-header">
           <span class="clipboard-list-title">我的剪贴板</span>
-          <mdui-button variant="text" @click="fetchMyClipboards" :loading="clipboardsLoading">
+          <mdui-button v-if="!isMultiSelectMode" variant="text" @click="fetchMyClipboards" :loading="clipboardsLoading">
             <mdui-icon slot="icon" name="refresh"></mdui-icon>
             刷新
           </mdui-button>
@@ -373,26 +447,32 @@ function handleTouchEnd(event: TouchEvent, item: any) {
             v-for="(item, index) in myClipboards"
             :key="index"
             class="swipe-item"
-            :class="{ 'swiping-left': item.swipeLeft, 'swiping-right': item.swipeRight }"
-            @touchstart="handleTouchStart($event, item)"
+            :class="{ 'swiping-left': item.swipeLeft, 'swiping-right': item.swipeRight, 'is-selected': selectedItems.has(index) }"
+            @touchstart="handleTouchStart($event, item, index)"
             @touchmove="handleTouchMove($event, item)"
-            @touchend="handleTouchEnd($event, item)"
+            @touchend="handleTouchEnd($event, item, index)"
+            @click="isMultiSelectMode && toggleSelection(index)"
           >
-            <div class="swipe-bg swipe-bg-left">
+            <!-- 左滑背景（分享）-->
+            <div v-if="!isMultiSelectMode" class="swipe-bg swipe-bg-left">
               <mdui-icon name="share" style="font-size: 24px; color: white;"></mdui-icon>
               <span>分享</span>
             </div>
-            <div class="swipe-bg swipe-bg-right">
+            
+            <!-- 右滑背景（多选）-->
+            <div v-if="!isMultiSelectMode" class="swipe-bg swipe-bg-right">
               <mdui-icon name="check_box" style="font-size: 24px; color: white;"></mdui-icon>
               <span>多选</span>
             </div>
+            
+            <!-- 内容层 -->
             <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
               <mdui-list-item
                 :headline="item.content.substring(0, 50) + (item.content.length > 50 ? '...' : '')"
                 :description="formatDate(item.createdAt)"
-                icon="content_paste"
+                :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
               >
-                <div slot="end" style="display: flex; gap: 8px;">
+                <div v-if="!isMultiSelectMode" slot="end" style="display: flex; gap: 8px;">
                   <mdui-button-icon icon="content_copy" @click.stop="copyClipboard(item.content)" title="复制"></mdui-button-icon>
                   <mdui-button-icon icon="delete" @click.stop="deleteClipboard(index)" title="删除"></mdui-button-icon>
                 </div>
@@ -403,7 +483,7 @@ function handleTouchEnd(event: TouchEvent, item: any) {
       </mdui-card>
 
       <!-- 悬浮添加按钮 -->
-      <mdui-fab class="fab-add" icon="add" @click="showAddClipboardDialog = true"></mdui-fab>
+      <mdui-fab v-if="!isMultiSelectMode" class="fab-add" icon="add" @click="showAddClipboardDialog = true"></mdui-fab>
 
       <!-- 添加剪贴板弹窗 -->
       <mdui-dialog
@@ -472,6 +552,21 @@ function handleTouchEnd(event: TouchEvent, item: any) {
   margin: 0 0 24px 0;
 }
 
+.multi-select-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--mdui-color-primary-container);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .clipboard-list-card {
   padding: 16px;
   width: 100%;
@@ -503,6 +598,15 @@ function handleTouchEnd(event: TouchEvent, item: any) {
   margin-bottom: 8px;
   border-radius: 8px;
   touch-action: pan-y;
+}
+
+.swipe-item.is-selected .swipe-content {
+  background: var(--mdui-color-primary-container);
+}
+
+.swipe-item.is-selected .swipe-content mdui-list-item {
+  background: var(--mdui-color-primary-container) !important;
+  --mdui-color-surface: var(--mdui-color-primary-container);
 }
 
 .swipe-bg {
