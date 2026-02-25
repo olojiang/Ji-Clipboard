@@ -180,7 +180,7 @@ async function handleFetch() {
   fetchedContent.value = ''
   
   try {
-    const response = await fetch(`${API_BASE}/api/clipboard/${fetchCode.value}`, {
+    const response = await fetch(`${API_BASE}/api/clipboard?code=${fetchCode.value}`, {
       headers: {
         'Accept': 'application/json'
       }
