@@ -310,8 +310,8 @@ function handleTouchMove(event: TouchEvent, item: any) {
     return
   }
   
-  // 如果垂直移动大于水平移动，认为是滚动，不处理滑动
-  if (deltaY > deltaX && deltaY > TAP_THRESHOLD) {
+  // 如果垂直移动明显大于水平移动（2倍以上），认为是滚动
+  if (deltaY > deltaX * 2 && deltaY > TAP_THRESHOLD) {
     console.log('[TouchMove] 垂直滚动，取消长按和滑动')
     if (longPressTimer.value) {
       clearTimeout(longPressTimer.value)
@@ -341,33 +341,38 @@ function handleTouchMove(event: TouchEvent, item: any) {
   lastTime.value = currentTime
   
   const diffX = currentX - swipeStartX.value
-  const maxSwipe = 150
+  
+  // 使用更柔和的阻力效果
+  const maxSwipe = 120
   let swipeX = diffX
-  if (swipeX > maxSwipe) swipeX = maxSwipe
-  if (swipeX < -maxSwipe) swipeX = -maxSwipe
+  
+  // 超出范围时添加阻力
+  if (swipeX > maxSwipe) {
+    swipeX = maxSwipe + (swipeX - maxSwipe) * 0.3
+  } else if (swipeX < -maxSwipe) {
+    swipeX = -maxSwipe + (swipeX + maxSwipe) * 0.3
+  }
   
   item.swipeX = swipeX
   
-  // 每移动50像素打印一次日志
-  if (Math.abs(diffX) % 50 < 5) {
-    console.log('[TouchMove] diffX:', diffX, 'swipeX:', swipeX, 'velocity:', velocity.value)
-  }
-  
+  // 实时更新滑动方向指示
   if (diffX < -SWIPE_THRESHOLD) {
-    item.swipeLeft = true
-    item.swipeRight = false
-    if (!hasVibrated) {
-      hasVibrated = true
-      console.log('[TouchMove] 左滑超过阈值')
-      if (navigator.vibrate) navigator.vibrate(30)
+    if (!item.swipeLeft) {
+      item.swipeLeft = true
+      item.swipeRight = false
+      if (!hasVibrated) {
+        hasVibrated = true
+        if (navigator.vibrate) navigator.vibrate(20)
+      }
     }
   } else if (diffX > SWIPE_THRESHOLD) {
-    item.swipeRight = true
-    item.swipeLeft = false
-    if (!hasVibrated) {
-      hasVibrated = true
-      console.log('[TouchMove] 右滑超过阈值')
-      if (navigator.vibrate) navigator.vibrate(30)
+    if (!item.swipeRight) {
+      item.swipeRight = true
+      item.swipeLeft = false
+      if (!hasVibrated) {
+        hasVibrated = true
+        if (navigator.vibrate) navigator.vibrate(20)
+      }
     }
   } else {
     item.swipeLeft = false
@@ -704,7 +709,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 .swipe-content {
   position: relative;
   background: white;
-  transition: transform 0.1s linear;
   will-change: transform;
   z-index: 2;
 }
