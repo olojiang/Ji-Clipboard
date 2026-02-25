@@ -74,6 +74,11 @@ const clipboardsError = ref('')
 const longPressTimer = ref<number | null>(null)
 const LONG_PRESS_DURATION = 800 // 长按持续时间（毫秒）
 
+// Toast 提示状态
+const toastMessage = ref('')
+const showToast = ref(false)
+const toastTimer = ref<number | null>(null)
+
 // 我的分享列表状态
 const showMyShares = ref(false)
 const myShares = ref<Array<{
@@ -439,7 +444,7 @@ async function fetchMyClipboards() {
 // 复制剪贴板内容
 function copyClipboard(content: string) {
   navigator.clipboard.writeText(content).then(() => {
-    alert('已复制到剪贴板！')
+    showToastMessage('已复制到剪贴板')
   }).catch(() => {
     const input = document.createElement('input')
     input.value = content
@@ -447,7 +452,7 @@ function copyClipboard(content: string) {
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
-    alert('已复制到剪贴板！')
+    showToastMessage('已复制到剪贴板')
   })
 }
 
@@ -481,6 +486,22 @@ function handleMouseUp() {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
+}
+
+// 显示 Toast 提示
+function showToastMessage(message: string) {
+  // 清除之前的定时器
+  if (toastTimer.value) {
+    clearTimeout(toastTimer.value)
+  }
+  
+  toastMessage.value = message
+  showToast.value = true
+  
+  // 2秒后自动隐藏
+  toastTimer.value = window.setTimeout(() => {
+    showToast.value = false
+  }, 2000)
 }
 
 // 删除剪贴板
@@ -722,6 +743,9 @@ function switchTab(tab: string) {
           </template>
         </div>
       </template>
+
+      <!-- Toast 提示 -->
+      <div v-if="showToast" class="toast">{{ toastMessage }}</div>
 
       <!-- 获取页面 -->
       <template v-if="currentTab === 'fetch'">
@@ -1699,6 +1723,32 @@ function switchTab(tab: string) {
 
 .clipboard-item:active {
   background: var(--mdui-color-surface-container-highest);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 14px;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 /* Bottom Navigation */
