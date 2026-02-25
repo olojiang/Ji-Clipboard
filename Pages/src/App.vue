@@ -66,6 +66,7 @@ const showAddClipboardDialog = ref(false)
 const myClipboards = ref<Array<{
   content: string
   createdAt: number
+  swipeX?: number
   swipeLeft?: boolean
   swipeRight?: boolean
 }>>([])
@@ -478,16 +479,25 @@ function copyClipboard(content: string) {
 const swipeStartX = ref(0)
 const swipeCurrentX = ref(0)
 const SWIPE_THRESHOLD = 80 // 滑动阈值
+let hasVibrated = false // 是否已经震动过
 
 // 长按开始（触摸）
 function handleTouchStart(event: TouchEvent, item: any) {
   swipeStartX.value = event.touches[0].clientX
   swipeCurrentX.value = swipeStartX.value
+  hasVibrated = false
+  
+  // 重置所有项的滑动位置和状态
+  myClipboards.value.forEach(i => {
+    i.swipeX = 0
+    i.swipeLeft = false
+    i.swipeRight = false
+  })
   
   longPressTimer.value = window.setTimeout(() => {
     // 触发震动反馈
     if (navigator.vibrate) {
-      navigator.vibrate(50) // 震动 50 毫秒
+      navigator.vibrate(50)
     }
     copyClipboard(item.content)
     longPressTimer.value = null
@@ -504,17 +514,40 @@ function handleTouchMove(event: TouchEvent, item: any) {
   swipeCurrentX.value = event.touches[0].clientX
   const diff = swipeCurrentX.value - swipeStartX.value
   
-  // 重置所有滑动状态
-  myClipboards.value.forEach(i => {
-    i.swipeLeft = false
-    i.swipeRight = false
-  })
+  // 限制滑动距离
+  const maxSwipe = 150
+  let swipeX = diff
+  if (swipeX > maxSwipe) swipeX = maxSwipe
+  if (swipeX < -maxSwipe) swipeX = -maxSwipe
   
-  // 设置当前项的滑动状态
+  // 设置当前项的滑动位置
+  item.swipeX = swipeX
+  
+  // 检查是否超过阈值
   if (diff < -SWIPE_THRESHOLD) {
     item.swipeLeft = true
+    item.swipeRight = false
+    // 触发震动（只触发一次）
+    if (!hasVibrated) {
+      hasVibrated = true
+      if (navigator.vibrate) {
+        navigator.vibrate(30)
+      }
+    }
   } else if (diff > SWIPE_THRESHOLD) {
     item.swipeRight = true
+    item.swipeLeft = false
+    // 触发震动（只触发一次）
+    if (!hasVibrated) {
+      hasVibrated = true
+      if (navigator.vibrate) {
+        navigator.vibrate(30)
+      }
+    }
+  } else {
+    item.swipeLeft = false
+    item.swipeRight = false
+    hasVibrated = false
   }
 }
 
@@ -525,19 +558,30 @@ function handleTouchEnd(event: TouchEvent, item: any) {
     longPressTimer.value = null
   }
   
-  // 可以在这里添加滑动后的操作
-  // 目前只是 UI 展示，不执行具体操作
+  // 松手后回弹
+  item.swipeX = 0
+  item.swipeLeft = false
+  item.swipeRight = false
+  hasVibrated = false
 }
 
 // 长按开始（鼠标）
 function handleMouseDown(event: MouseEvent, item: any) {
   swipeStartX.value = event.clientX
   swipeCurrentX.value = swipeStartX.value
+  hasVibrated = false
+  
+  // 重置所有项的滑动位置和状态
+  myClipboards.value.forEach(i => {
+    i.swipeX = 0
+    i.swipeLeft = false
+    i.swipeRight = false
+  })
   
   longPressTimer.value = window.setTimeout(() => {
     // 触发震动反馈
     if (navigator.vibrate) {
-      navigator.vibrate(50) // 震动 50 毫秒
+      navigator.vibrate(50)
     }
     copyClipboard(item.content)
     longPressTimer.value = null
@@ -546,28 +590,50 @@ function handleMouseDown(event: MouseEvent, item: any) {
 
 // 滑动中（鼠标）
 function handleMouseMove(event: MouseEvent, item: any) {
-  if (!longPressTimer.value) return
+  if (!longPressTimer.value && item.swipeX === undefined) return
   
-  swipeCurrentX.value = event.clientX
-  const diff = swipeCurrentX.value - swipeStartX.value
-  
-  // 如果移动距离超过阈值，取消长按
-  if (Math.abs(diff) > 10) {
+  if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
   
-  // 重置所有滑动状态
-  myClipboards.value.forEach(i => {
-    i.swipeLeft = false
-    i.swipeRight = false
-  })
+  swipeCurrentX.value = event.clientX
+  const diff = swipeCurrentX.value - swipeStartX.value
   
-  // 设置当前项的滑动状态
+  // 限制滑动距离
+  const maxSwipe = 150
+  let swipeX = diff
+  if (swipeX > maxSwipe) swipeX = maxSwipe
+  if (swipeX < -maxSwipe) swipeX = -maxSwipe
+  
+  // 设置当前项的滑动位置
+  item.swipeX = swipeX
+  
+  // 检查是否超过阈值
   if (diff < -SWIPE_THRESHOLD) {
     item.swipeLeft = true
+    item.swipeRight = false
+    // 触发震动（只触发一次）
+    if (!hasVibrated) {
+      hasVibrated = true
+      if (navigator.vibrate) {
+        navigator.vibrate(30)
+      }
+    }
   } else if (diff > SWIPE_THRESHOLD) {
     item.swipeRight = true
+    item.swipeLeft = false
+    // 触发震动（只触发一次）
+    if (!hasVibrated) {
+      hasVibrated = true
+      if (navigator.vibrate) {
+        navigator.vibrate(30)
+      }
+    }
+  } else {
+    item.swipeLeft = false
+    item.swipeRight = false
+    hasVibrated = false
   }
 }
 
@@ -577,6 +643,12 @@ function handleMouseUp(event: MouseEvent, item: any) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
+  
+  // 松手后回弹
+  item.swipeX = 0
+  item.swipeLeft = false
+  item.swipeRight = false
+  hasVibrated = false
 }
 
 // 显示 Toast 提示
@@ -774,20 +846,23 @@ function switchTab(tab: string) {
                   @mouseup="handleMouseUp($event, item)"
                   @mouseleave="handleMouseUp($event, item)"
                 >
-                  <!-- 左滑背景（分享） -->
+                  <!-- 左滑背景（分享）- 紫色 -->
                   <div class="swipe-bg swipe-bg-left">
                     <mdui-icon name="share" style="font-size: 24px; color: white;"></mdui-icon>
                     <span>分享</span>
                   </div>
                   
-                  <!-- 右滑背景（多选） -->
+                  <!-- 右滑背景（多选）- 绿色 -->
                   <div class="swipe-bg swipe-bg-right">
                     <mdui-icon name="check_box" style="font-size: 24px; color: white;"></mdui-icon>
                     <span>多选</span>
                   </div>
                   
                   <!-- 内容层 -->
-                  <div class="swipe-content">
+                  <div 
+                    class="swipe-content"
+                    :style="{ transform: `translateX(${item.swipeX || 0}px)` }"
+                  >
                     <mdui-list-item
                       :headline="item.content.substring(0, 50) + (item.content.length > 50 ? '...' : '')"
                       :description="formatDate(item.createdAt)"
@@ -1829,6 +1904,7 @@ function switchTab(tab: string) {
   overflow: hidden;
   margin-bottom: 8px;
   border-radius: 8px;
+  touch-action: pan-y;
 }
 
 .swipe-bg {
@@ -1839,23 +1915,20 @@ function switchTab(tab: string) {
   display: flex;
   align-items: center;
   padding: 0 24px;
-  transition: transform 0.3s ease;
 }
 
 .swipe-bg-left {
   left: 0;
-  background: var(--mdui-color-primary);
+  background: #6750A4;
   color: white;
   justify-content: flex-end;
-  transform: translateX(-100%);
 }
 
 .swipe-bg-right {
   right: 0;
-  background: var(--mdui-color-tertiary);
+  background: #4CAF50;
   color: white;
   justify-content: flex-start;
-  transform: translateX(100%);
 }
 
 .swipe-bg span {
@@ -1867,25 +1940,8 @@ function switchTab(tab: string) {
 .swipe-content {
   position: relative;
   background: var(--mdui-color-surface);
-  transition: transform 0.3s ease;
-}
-
-/* 左滑状态 */
-.swiping-left .swipe-bg-left {
-  transform: translateX(-50%);
-}
-
-.swiping-left .swipe-content {
-  transform: translateX(-50%);
-}
-
-/* 右滑状态 */
-.swiping-right .swipe-bg-right {
-  transform: translateX(50%);
-}
-
-.swiping-right .swipe-content {
-  transform: translateX(50%);
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  will-change: transform;
 }
 
 /* Toast */
