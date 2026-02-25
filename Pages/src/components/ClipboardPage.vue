@@ -30,9 +30,14 @@ const clipboardsError = ref('')
 const longPressTimer = ref<number | null>(null)
 const LONG_PRESS_DURATION = 800
 const swipeStartX = ref(0)
-const swipeCurrentX = ref(0)
 const SWIPE_THRESHOLD = 80
 let hasVibrated = false
+
+// 惯性滑动状态
+const velocity = ref(0)
+const lastX = ref(0)
+const lastTime = ref(0)
+let animationFrame: number | null = null
 
 // 监听登录状态，自动加载数据
 watch(() => props.user.loggedIn, (loggedIn) => {
@@ -190,8 +195,16 @@ async function deleteClipboard(index: number) {
 
 // 触摸开始
 function handleTouchStart(event: TouchEvent, item: any) {
+  // 停止之前的动画
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame)
+    animationFrame = null
+  }
+  
   swipeStartX.value = event.touches[0].clientX
-  swipeCurrentX.value = swipeStartX.value
+  lastX.value = swipeStartX.value
+  lastTime.value = Date.now()
+  velocity.value = 0
   hasVibrated = false
   
   myClipboards.value.forEach(i => {
@@ -214,8 +227,20 @@ function handleTouchMove(event: TouchEvent, item: any) {
     longPressTimer.value = null
   }
   
-  swipeCurrentX.value = event.touches[0].clientX
-  const diff = swipeCurrentX.value - swipeStartX.value
+  const currentX = event.touches[0].clientX
+  const currentTime = Date.now()
+  
+  // 计算速度
+  const deltaX = currentX - lastX.value
+  const deltaTime = currentTime - lastTime.value
+  if (deltaTime > 0) {
+    velocity.value = deltaX / deltaTime * 16
+  }
+  
+  lastX.value = currentX
+  lastTime.value = currentTime
+  
+  const diff = currentX - swipeStartX.value
   const maxSwipe = 150
   let swipeX = diff
   if (swipeX > maxSwipe) swipeX = maxSwipe
@@ -244,16 +269,55 @@ function handleTouchMove(event: TouchEvent, item: any) {
   }
 }
 
-// 触摸结束
+// 触摸结束 - 添加惯性回弹
 function handleTouchEnd(event: TouchEvent, item: any) {
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  item.swipeX = 0
-  item.swipeLeft = false
-  item.swipeRight = false
-  hasVibrated = false
+  
+  // 惯性滑动
+  const inertia = () => {
+    if (Math.abs(velocity.value) < 0.5) {
+      springBack()
+      return
+    }
+    
+    item.swipeX = (item.swipeX || 0) + velocity.value
+    
+    const maxSwipe = 150
+    if (item.swipeX > maxSwipe) {
+      item.swipeX = maxSwipe
+      velocity.value = 0
+    }
+    if (item.swipeX < -maxSwipe) {
+      item.swipeX = -maxSwipe
+      velocity.value = 0
+    }
+    
+    velocity.value *= 0.95
+    animationFrame = requestAnimationFrame(inertia)
+  }
+  
+  // 回弹动画
+  const springBack = () => {
+    const targetX = 0
+    const currentX = item.swipeX || 0
+    const diff = targetX - currentX
+    
+    if (Math.abs(diff) < 0.5) {
+      item.swipeX = 0
+      item.swipeLeft = false
+      item.swipeRight = false
+      hasVibrated = false
+      return
+    }
+    
+    item.swipeX = currentX + diff * 0.15
+    animationFrame = requestAnimationFrame(springBack)
+  }
+  
+  animationFrame = requestAnimationFrame(inertia)
 }
 </script>
 
@@ -474,7 +538,7 @@ function handleTouchEnd(event: TouchEvent, item: any) {
 .swipe-content {
   position: relative;
   background: white;
-  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: transform 0.1s linear;
   will-change: transform;
   z-index: 2;
 }
