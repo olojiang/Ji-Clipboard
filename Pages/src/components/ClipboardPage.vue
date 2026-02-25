@@ -244,8 +244,13 @@ async function deleteSelected() {
 
 // 触摸开始
 function handleTouchStart(event: TouchEvent, item: any, index: number) {
+  console.log('[TouchStart] index:', index, 'isMultiSelectMode:', isMultiSelectMode.value)
+  
   // 如果已经在多选模式，直接返回
-  if (isMultiSelectMode.value) return
+  if (isMultiSelectMode.value) {
+    console.log('[TouchStart] 多选模式，跳过')
+    return
+  }
   
   // 停止之前的动画
   if (animationFrame) {
@@ -259,6 +264,8 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
   velocity.value = 0
   hasVibrated = false
   
+  console.log('[TouchStart] startX:', swipeStartX.value)
+  
   myClipboards.value.forEach(i => {
     i.swipeX = 0
     i.swipeLeft = false
@@ -266,6 +273,7 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
   })
   
   longPressTimer.value = window.setTimeout(() => {
+    console.log('[TouchStart] 长按触发复制')
     if (navigator.vibrate) navigator.vibrate(50)
     copyClipboard(item.content)
     longPressTimer.value = null
@@ -302,11 +310,17 @@ function handleTouchMove(event: TouchEvent, item: any) {
   
   item.swipeX = swipeX
   
+  // 每移动50像素打印一次日志
+  if (Math.abs(diff) % 50 < 5) {
+    console.log('[TouchMove] diff:', diff, 'swipeX:', swipeX, 'velocity:', velocity.value)
+  }
+  
   if (diff < -SWIPE_THRESHOLD) {
     item.swipeLeft = true
     item.swipeRight = false
     if (!hasVibrated) {
       hasVibrated = true
+      console.log('[TouchMove] 左滑超过阈值')
       if (navigator.vibrate) navigator.vibrate(30)
     }
   } else if (diff > SWIPE_THRESHOLD) {
@@ -314,6 +328,7 @@ function handleTouchMove(event: TouchEvent, item: any) {
     item.swipeLeft = false
     if (!hasVibrated) {
       hasVibrated = true
+      console.log('[TouchMove] 右滑超过阈值')
       if (navigator.vibrate) navigator.vibrate(30)
     }
   } else {
@@ -325,8 +340,13 @@ function handleTouchMove(event: TouchEvent, item: any) {
 
 // 触摸结束 - 添加惯性回弹
 function handleTouchEnd(event: TouchEvent, item: any, index: number) {
+  console.log('[TouchEnd] index:', index, 'swipeRight:', item.swipeRight, 'swipeX:', item.swipeX)
+  
   // 如果已经在多选模式，不处理
-  if (isMultiSelectMode.value) return
+  if (isMultiSelectMode.value) {
+    console.log('[TouchEnd] 多选模式，跳过')
+    return
+  }
   
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
@@ -370,6 +390,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       
       // 如果右滑超过阈值，进入多选模式
       if (item.swipeRight) {
+        console.log('[TouchEnd] 进入多选模式')
         isMultiSelectMode.value = true
         selectedItems.value.clear()
         selectedItems.value.add(index)
