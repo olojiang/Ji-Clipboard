@@ -576,6 +576,8 @@ function switchTab(tab: string) {
 .fetch-card {
   padding: 24px;
   text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .title {
@@ -604,6 +606,8 @@ function switchTab(tab: string) {
 /* Recent Card */
 .recent-card {
   padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .recent-header {
@@ -640,6 +644,8 @@ function switchTab(tab: string) {
 /* Share Card */
 .share-card {
   padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .share-card .title {
@@ -1013,6 +1019,8 @@ function switchTab(tab: string) {
 /* Profile Card */
 .profile-card {
   padding: 32px 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .profile-header {
