@@ -166,27 +166,37 @@ async function handleGitHubCallback(request, env, corsHeaders) {
 async function handleGetMe(request, env, corsHeaders) {
   const sessionId = getCookie(request, 'session_id');
   
-  if (!sessionId) {
-    return jsonResponse({ loggedIn: false }, 200, corsHeaders);
-  }
-
-  const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+  console.log('GetMe called, sessionId:', sessionId);
   
-  if (!sessionData) {
+  if (!sessionId) {
+    console.log('No sessionId found in cookie');
     return jsonResponse({ loggedIn: false }, 200, corsHeaders);
   }
 
-  const user = JSON.parse(sessionData);
-  return jsonResponse({
-    loggedIn: true,
-    user: {
-      id: user.userId,
-      login: user.login,
-      name: user.name,
-      avatar: user.avatar,
-      email: user.email,
-    },
-  }, 200, corsHeaders);
+  try {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    
+    if (!sessionData) {
+      console.log('Session not found in KV for sessionId:', sessionId);
+      return jsonResponse({ loggedIn: false }, 200, corsHeaders);
+    }
+
+    const user = JSON.parse(sessionData);
+    console.log('User found:', user.login);
+    return jsonResponse({
+      loggedIn: true,
+      user: {
+        id: user.userId,
+        login: user.login,
+        name: user.name,
+        avatar: user.avatar,
+        email: user.email,
+      },
+    }, 200, corsHeaders);
+  } catch (error) {
+    console.error('Error in handleGetMe:', error);
+    return jsonResponse({ loggedIn: false, error: 'Server error' }, 500, corsHeaders);
+  }
 }
 
 // 登出

@@ -57,12 +57,19 @@ onMounted(async () => {
 async function fetchUserInfo() {
   try {
     const response = await fetch(`${API_BASE}/api/me`, {
-      credentials: 'include'
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+      }
     })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
     const data = await response.json()
     user.value = data
   } catch (error) {
     console.error('获取用户信息失败:', error)
+    user.value = { loggedIn: false }
   }
 }
 
