@@ -12,6 +12,9 @@ const md = new MarkdownIt({
 // API 基础地址
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
 
+// 页面基础 URL（用于生成分享链接）
+const BASE_URL = window.location.origin
+
 // 当前页面标签
 const currentTab = ref('fetch')
 
@@ -216,7 +219,7 @@ async function handleShare() {
 // 复制分享链接
 function copyShareLink() {
   if (shareCode.value) {
-    const shareLink = `${window.location.origin}/view.html?code=${shareCode.value}`
+    const shareLink = `${BASE_URL}/view.html?code=${shareCode.value}`
     navigator.clipboard.writeText(shareLink).then(() => {
       alert('分享链接已复制到剪贴板！')
     }).catch(() => {
@@ -355,7 +358,7 @@ function switchTab(tab: string) {
               <mdui-icon name="check_circle" style="font-size: 64px; color: var(--mdui-color-primary);"></mdui-icon>
               <h3 class="success-title">分享成功！</h3>
               <p class="success-subtitle">您的分享链接</p>
-              <div class="share-link-display">{{ window.location.origin }}/view.html?code={{ shareCode }}</div>
+              <div class="share-link-display">{{ BASE_URL }}/view.html?code={{ shareCode }}</div>
               <div class="success-actions">
                 <mdui-button variant="filled" @click="copyShareLink">
                   <mdui-icon slot="icon" name="content_copy"></mdui-icon>
