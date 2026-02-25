@@ -55,6 +55,18 @@ const user = ref<{
   }
 }>({ loggedIn: false })
 
+// 我的分享列表状态
+const showMyShares = ref(false)
+const myShares = ref<Array<{
+  code: string
+  content: string
+  type: string
+  createdAt: number
+  expiresAt: number
+}>>([])
+const mySharesLoading = ref(false)
+const mySharesError = ref('')
+
 // 写死的数据
 const recentClips = ref([
   {
@@ -301,6 +313,58 @@ function clearAll() {
   recentClips.value = []
 }
 
+// 获取我的分享列表
+async function fetchMyShares() {
+  mySharesLoading.value = true
+  mySharesError.value = ''
+  
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/my-shares`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+    
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    myShares.value = data.shares || []
+  } catch (error) {
+    console.error('获取分享列表失败:', error)
+    mySharesError.value = '获取分享列表失败，请稍后重试'
+  } finally {
+    mySharesLoading.value = false
+  }
+}
+
+// 关闭分享列表
+function closeMyShares() {
+  showMyShares.value = false
+  myShares.value = []
+  mySharesError.value = ''
+}
+
+// 格式化日期
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 function switchTab(tab: string) {
   currentTab.value = tab
 }
@@ -519,7 +583,7 @@ function switchTab(tab: string) {
             </div>
             
             <mdui-list>
-              <mdui-list-item icon="history" headline="我的剪贴板"></mdui-list-item>
+              <mdui-list-item icon="history" headline="我的分享" @click="showMyShares = true"></mdui-list-item>
               <mdui-list-item icon="settings" headline="设置"></mdui-list-item>
               <mdui-list-item icon="help" headline="帮助"></mdui-list-item>
             </mdui-list>
@@ -534,6 +598,61 @@ function switchTab(tab: string) {
           </mdui-card>
         </div>
       </template>
+
+      <!-- 我的分享列表弹窗 -->
+      <mdui-dialog
+        :open="showMyShares"
+        @close="closeMyShares"
+        headline="我的分享"
+        style="max-width: 600px; width: 90%;"
+      >
+        <div v-if="mySharesLoading" class="loading-state">
+          <div class="spinner"></div>
+          <p>正在加载...</p>
+        </div>
+        
+        <div v-else-if="mySharesError" class="error-state">
+          <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
+          <p>{{ mySharesError }}</p>
+          <mdui-button variant="filled" @click="fetchMyShares">重试</mdui-button>
+        </div>
+        
+        <div v-else-if="myShares.length === 0" class="empty-state">
+          <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
+          <p>暂无分享内容</p>
+        </div>
+        
+        <mdui-list v-else>
+          <mdui-list-item
+            v-for="share in myShares"
+            :key="share.code"
+            :headline="`提取码: ${share.code}`"
+            :description="`${formatDate(share.createdAt)} · 过期: ${formatDate(share.expiresAt)}`"
+            icon="description"
+          >
+            <div slot="end" style="display: flex; gap: 8px;">
+              <mdui-button-icon 
+                icon="content_copy" 
+                @click="navigator.clipboard.writeText(`${BASE_URL}/view.html?code=${share.code}`)"
+                title="复制链接"
+              ></mdui-button-icon>
+              <mdui-button-icon 
+                icon="open_in_new" 
+                @click="window.open(`./view.html?code=${share.code}`, '_blank')"
+                title="查看"
+              ></mdui-button-icon>
+            </div>
+          </mdui-list-item>
+        </mdui-list>
+        
+        <mdui-button slot="action" variant="text" @click="closeMyShares">关闭</mdui-button>
+      </mdui-dialog>
+
+      <!-- 触发获取分享列表 -->
+      <mdui-snackbar
+        :open="showMyShares"
+        @opened="fetchMyShares"
+      ></mdui-snackbar>
     </main>
 
     <!-- 底部导航栏 -->
@@ -1022,6 +1141,33 @@ function switchTab(tab: string) {
   font-size: 14px;
   color: var(--mdui-color-on-surface-variant);
   margin: 0 0 24px 0;
+}
+
+/* My Shares Dialog */
+.loading-state,
+.error-state,
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--mdui-color-surface-container-highest);
+  border-top-color: var(--mdui-color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-state mdui-icon,
+.empty-state mdui-icon {
+  margin-bottom: 16px;
 }
 
 /* Profile Card */

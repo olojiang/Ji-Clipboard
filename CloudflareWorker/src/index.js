@@ -51,6 +51,11 @@ export default {
         return handleGetClipboard(request, env, corsHeaders);
       }
 
+      // 获取我的分享列表
+      if (path === '/api/my-shares') {
+        return handleGetMyShares(request, env, corsHeaders);
+      }
+
       return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
     } catch (error) {
       console.error('Worker error:', error);
@@ -303,6 +308,15 @@ async function handleSaveClipboard(request, env, corsHeaders) {
     expirationTtl: expireHours * 60 * 60,
   });
 
+  // 保存到用户分享列表
+  const userSharesKey = `user_shares:${userId}`;
+  const existingShares = await env.CLIPBOARD_KV.get(userSharesKey);
+  const shareCodes = existingShares ? JSON.parse(existingShares) : [];
+  shareCodes.push(code);
+  await env.CLIPBOARD_KV.put(userSharesKey, JSON.stringify(shareCodes), {
+    expirationTtl: 7 * 24 * 60 * 60, // 7天
+  });
+
   return jsonResponse({
     success: true,
     code,
@@ -346,6 +360,62 @@ async function handleGetClipboard(request, env, corsHeaders) {
     type: clipboard.type,
     createdAt: clipboard.createdAt,
     expiresAt: clipboard.expiresAt,
+  }, 200, corsHeaders);
+}
+
+// 获取我的分享列表
+async function handleGetMyShares(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  // 从 KV 中列出所有该用户的分享
+  // 注意：Cloudflare KV 不支持按前缀列出，我们需要存储用户分享列表
+  const userSharesKey = `user_shares:${userId}`;
+  const sharesData = await env.CLIPBOARD_KV.get(userSharesKey);
+  const shareCodes = sharesData ? JSON.parse(sharesData) : [];
+  
+  // 获取每个分享的详细信息
+  const shares = [];
+  for (const code of shareCodes) {
+    const clipData = await env.CLIPBOARD_KV.get(`clip:${code}`);
+    if (clipData) {
+      const clip = JSON.parse(clipData);
+      shares.push({
+        code: clip.code,
+        content: clip.content.substring(0, 100) + (clip.content.length > 100 ? '...' : ''), // 截断内容
+        type: clip.type,
+        createdAt: clip.createdAt,
+        expiresAt: clip.expiresAt,
+      });
+    }
+  }
+  
+  // 按创建时间倒序排列
+  shares.sort((a, b) => b.createdAt - a.createdAt);
+
+  return jsonResponse({
+    shares,
   }, 200, corsHeaders);
 }
 
