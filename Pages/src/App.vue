@@ -1,8 +1,23 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+
+// API 基础地址
+const API_BASE = import.meta.env.VITE_API_URL || 'https://你的worker地址.workers.dev'
 
 // 当前页面标签
 const currentTab = ref('fetch')
+
+// 用户信息
+const user = ref<{
+  loggedIn: boolean
+  user?: {
+    id: number
+    login: string
+    name: string
+    avatar: string
+    email: string
+  }
+}>({ loggedIn: false })
 
 // 写死的数据
 const code = ref('')
@@ -32,6 +47,42 @@ const recentClips = ref([
     expired: true
   }
 ])
+
+// 页面加载时获取用户信息
+onMounted(async () => {
+  await fetchUserInfo()
+})
+
+// 获取用户信息
+async function fetchUserInfo() {
+  try {
+    const response = await fetch(`${API_BASE}/api/me`, {
+      credentials: 'include'
+    })
+    const data = await response.json()
+    user.value = data
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+  }
+}
+
+// GitHub 登录
+function loginWithGitHub() {
+  window.location.href = `${API_BASE}/auth/github`
+}
+
+// 登出
+async function logout() {
+  try {
+    await fetch(`${API_BASE}/api/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+    user.value = { loggedIn: false }
+  } catch (error) {
+    console.error('登出失败:', error)
+  }
+}
 
 function handleFetch() {
   alert(`正在获取: ${code.value || '空'}`)
@@ -132,12 +183,56 @@ function switchTab(tab: string) {
         </div>
       </template>
 
-      <!-- 我的页面 -->
+      <!-- 我的页面（个人中心）-->
       <template v-if="currentTab === 'profile'">
         <div class="section">
-          <mdui-card class="placeholder-card">
-            <mdui-icon name="person" style="font-size: 48px; opacity: 0.5;"></mdui-icon>
-            <p>个人中心开发中...</p>
+          <!-- 未登录状态 -->
+          <mdui-card v-if="!user.loggedIn" class="profile-card">
+            <div class="profile-header">
+              <div class="avatar-placeholder">
+                <mdui-icon name="person" style="font-size: 48px;"></mdui-icon>
+              </div>
+              <h2 class="profile-title">未登录</h2>
+              <p class="profile-subtitle">登录后可同步剪贴板历史</p>
+            </div>
+            
+            <mdui-button 
+              variant="filled"
+              class="github-login-btn"
+              @click="loginWithGitHub"
+            >
+              <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+              </svg>
+              使用 GitHub 登录
+            </mdui-button>
+          </mdui-card>
+
+          <!-- 已登录状态 -->
+          <mdui-card v-else class="profile-card">
+            <div class="profile-header">
+              <img 
+                :src="user.user?.avatar" 
+                :alt="user.user?.login"
+                class="avatar-image"
+              >
+              <h2 class="profile-title">{{ user.user?.name || user.user?.login }}</h2>
+              <p class="profile-subtitle">@{{ user.user?.login }}</p>
+            </div>
+            
+            <mdui-list>
+              <mdui-list-item icon="history" headline="我的剪贴板"></mdui-list-item>
+              <mdui-list-item icon="settings" headline="设置"></mdui-list-item>
+              <mdui-list-item icon="help" headline="帮助"></mdui-list-item>
+            </mdui-list>
+            
+            <mdui-button 
+              variant="outlined"
+              class="logout-btn"
+              @click="logout"
+            >
+              退出登录
+            </mdui-button>
           </mdui-card>
         </div>
       </template>
@@ -262,6 +357,67 @@ function switchTab(tab: string) {
 .placeholder-card p {
   margin-top: 16px;
   font-size: 16px;
+}
+
+/* Profile Card */
+.profile-card {
+  padding: 32px 24px;
+}
+
+.profile-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--mdui-color-surface-container-highest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+.avatar-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  display: block;
+  object-fit: cover;
+}
+
+.profile-title {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--mdui-color-on-surface);
+}
+
+.profile-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+.github-login-btn {
+  width: 100%;
+  --mdui-button-height: 48px;
+  gap: 8px;
+}
+
+.github-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.logout-btn {
+  width: 100%;
+  margin-top: 16px;
+  --mdui-button-height: 48px;
 }
 
 /* Bottom Navigation */

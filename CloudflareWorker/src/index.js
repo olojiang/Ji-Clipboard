@@ -1,0 +1,313 @@
+// Cloudflare Worker - GitHub OAuth + KV 存储
+// 环境变量: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, JWT_SECRET
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // CORS 头
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': env.FRONTEND_URL || '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+    };
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    try {
+      // GitHub OAuth 登录入口
+      if (path === '/auth/github') {
+        return handleGitHubAuth(request, env, corsHeaders);
+      }
+
+      // GitHub OAuth 回调
+      if (path === '/auth/callback') {
+        return handleGitHubCallback(request, env, corsHeaders);
+      }
+
+      // 获取当前用户信息
+      if (path === '/api/me') {
+        return handleGetMe(request, env, corsHeaders);
+      }
+
+      // 登出
+      if (path === '/api/logout') {
+        return handleLogout(request, env, corsHeaders);
+      }
+
+      // 保存剪贴板数据
+      if (path === '/api/clipboard' && request.method === 'POST') {
+        return handleSaveClipboard(request, env, corsHeaders);
+      }
+
+      // 获取剪贴板数据
+      if (path === '/api/clipboard/:code') {
+        return handleGetClipboard(request, env, corsHeaders);
+      }
+
+      return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
+    } catch (error) {
+      console.error('Worker error:', error);
+      return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
+    }
+  },
+};
+
+// GitHub OAuth 登录
+async function handleGitHubAuth(request, env, corsHeaders) {
+  const state = generateRandomString(32);
+  
+  // 存储 state 到 KV（5分钟过期）
+  await env.AUTH_KV.put(`state:${state}`, '1', { expirationTtl: 300 });
+
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?` +
+    `client_id=${env.GITHUB_CLIENT_ID}&` +
+    `redirect_uri=${encodeURIComponent(env.WORKER_URL + '/auth/callback')}&` +
+    `state=${state}&` +
+    `scope=user:email`;
+
+  return Response.redirect(githubAuthUrl, 302);
+}
+
+// GitHub OAuth 回调
+async function handleGitHubCallback(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+
+  if (!code || !state) {
+    return jsonResponse({ error: 'Missing code or state' }, 400, corsHeaders);
+  }
+
+  // 验证 state
+  const stateValid = await env.AUTH_KV.get(`state:${state}`);
+  if (!stateValid) {
+    return jsonResponse({ error: 'Invalid or expired state' }, 400, corsHeaders);
+  }
+  await env.AUTH_KV.delete(`state:${state}`);
+
+  // 交换 code 获取 access token
+  const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: env.GITHUB_CLIENT_ID,
+      client_secret: env.GITHUB_CLIENT_SECRET,
+      code: code,
+      redirect_uri: env.WORKER_URL + '/auth/callback',
+    }),
+  });
+
+  const tokenData = await tokenResponse.json();
+  
+  if (tokenData.error) {
+    return jsonResponse({ error: tokenData.error_description }, 400, corsHeaders);
+  }
+
+  // 获取 GitHub 用户信息
+  const userResponse = await fetch('https://api.github.com/user', {
+    headers: {
+      'Authorization': `Bearer ${tokenData.access_token}`,
+      'User-Agent': 'Ji-Clipboard',
+    },
+  });
+
+  const githubUser = await userResponse.json();
+
+  // 生成 session ID
+  const sessionId = generateRandomString(32);
+  
+  // 存储用户会话到 KV（7天过期）
+  const sessionData = {
+    userId: githubUser.id,
+    login: githubUser.login,
+    name: githubUser.name,
+    avatar: githubUser.avatar_url,
+    email: githubUser.email,
+    createdAt: Date.now(),
+  };
+
+  await env.AUTH_KV.put(`session:${sessionId}`, JSON.stringify(sessionData), {
+    expirationTtl: 7 * 24 * 60 * 60, // 7天
+  });
+
+  // 存储用户ID到会话的映射
+  await env.AUTH_KV.put(`user_session:${githubUser.id}`, sessionId, {
+    expirationTtl: 7 * 24 * 60 * 60,
+  });
+
+  // 设置 Cookie 并重定向回前端
+  const redirectUrl = env.FRONTEND_URL || '/';
+  return new Response(null, {
+    status: 302,
+    headers: {
+      ...corsHeaders,
+      'Location': redirectUrl,
+      'Set-Cookie': `session_id=${sessionId}; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}; Path=/`,
+    },
+  });
+}
+
+// 获取当前用户信息
+async function handleGetMe(request, env, corsHeaders) {
+  const sessionId = getCookie(request, 'session_id');
+  
+  if (!sessionId) {
+    return jsonResponse({ loggedIn: false }, 200, corsHeaders);
+  }
+
+  const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+  
+  if (!sessionData) {
+    return jsonResponse({ loggedIn: false }, 200, corsHeaders);
+  }
+
+  const user = JSON.parse(sessionData);
+  return jsonResponse({
+    loggedIn: true,
+    user: {
+      id: user.userId,
+      login: user.login,
+      name: user.name,
+      avatar: user.avatar,
+      email: user.email,
+    },
+  }, 200, corsHeaders);
+}
+
+// 登出
+async function handleLogout(request, env, corsHeaders) {
+  const sessionId = getCookie(request, 'session_id');
+  
+  if (sessionId) {
+    await env.AUTH_KV.delete(`session:${sessionId}`);
+  }
+
+  return jsonResponse({ success: true }, 200, {
+    ...corsHeaders,
+    'Set-Cookie': `session_id=; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Path=/`,
+  });
+}
+
+// 保存剪贴板数据
+async function handleSaveClipboard(request, env, corsHeaders) {
+  const sessionId = getCookie(request, 'session_id');
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  const body = await request.json();
+  const { content, type = 'text', expireHours = 24 } = body;
+
+  if (!content) {
+    return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
+  }
+
+  // 生成5位提取码
+  const code = await generateUniqueCode(env);
+
+  const clipboardData = {
+    code,
+    content,
+    type,
+    userId,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + expireHours * 60 * 60 * 1000,
+  };
+
+  await env.CLIPBOARD_KV.put(`clip:${code}`, JSON.stringify(clipboardData), {
+    expirationTtl: expireHours * 60 * 60,
+  });
+
+  return jsonResponse({
+    success: true,
+    code,
+    expiresAt: clipboardData.expiresAt,
+  }, 200, corsHeaders);
+}
+
+// 获取剪贴板数据
+async function handleGetClipboard(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const code = url.pathname.split('/').pop();
+
+  if (!code || code.length !== 5) {
+    return jsonResponse({ error: 'Invalid code' }, 400, corsHeaders);
+  }
+
+  const data = await env.CLIPBOARD_KV.get(`clip:${code}`);
+
+  if (!data) {
+    return jsonResponse({ error: 'Not found or expired' }, 404, corsHeaders);
+  }
+
+  const clipboard = JSON.parse(data);
+  
+  // 检查是否过期
+  if (Date.now() > clipboard.expiresAt) {
+    await env.CLIPBOARD_KV.delete(`clip:${code}`);
+    return jsonResponse({ error: 'Expired' }, 410, corsHeaders);
+  }
+
+  return jsonResponse({
+    code: clipboard.code,
+    content: clipboard.content,
+    type: clipboard.type,
+    createdAt: clipboard.createdAt,
+    expiresAt: clipboard.expiresAt,
+  }, 200, corsHeaders);
+}
+
+// 生成唯一的5位提取码
+async function generateUniqueCode(env, maxAttempts = 10) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const code = Math.floor(10000 + Math.random() * 90000).toString();
+    const exists = await env.CLIPBOARD_KV.get(`clip:${code}`);
+    if (!exists) {
+      return code;
+    }
+  }
+  throw new Error('Failed to generate unique code');
+}
+
+// 辅助函数：生成随机字符串
+function generateRandomString(length) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+// 辅助函数：获取 Cookie
+function getCookie(request, name) {
+  const cookies = request.headers.get('Cookie');
+  if (!cookies) return null;
+  
+  const match = cookies.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// 辅助函数：JSON 响应
+function jsonResponse(data, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      ...extraHeaders,
+    },
+  });
+}

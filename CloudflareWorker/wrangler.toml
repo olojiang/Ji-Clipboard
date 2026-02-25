@@ -1,0 +1,21 @@
+name = "ji-clipboard-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# KV 命名空间
+[[kv_namespaces]]
+binding = "AUTH_KV"
+id = "你的_AUTH_KV_ID"
+
+[[kv_namespaces]]
+binding = "CLIPBOARD_KV"
+id = "你的_CLIPBOARD_KV_ID"
+
+# 环境变量（敏感信息用 wrangler secret 设置）
+[vars]
+FRONTEND_URL = "https://你的前端地址.pages.dev"
+WORKER_URL = "https://你的worker地址.workers.dev"
+
+#  secrets（通过 wrangler secret put 设置）:
+#  GITHUB_CLIENT_ID
+#  GITHUB_CLIENT_SECRET
