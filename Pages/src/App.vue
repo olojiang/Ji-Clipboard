@@ -55,6 +55,9 @@ const user = ref<{
   }
 }>({ loggedIn: false })
 
+// 登录状态加载中
+const authLoading = ref(true)
+
 // 我的分享列表状态
 const showMyShares = ref(false)
 const myShares = ref<Array<{
@@ -125,6 +128,7 @@ onMounted(async () => {
   setTimeout(async () => {
     console.log('Fetching user info after delay...')
     await fetchUserInfo()
+    authLoading.value = false
   }, 1000)
 })
 
@@ -567,8 +571,16 @@ function switchTab(tab: string) {
       <!-- 我的页面（个人中心）-->
       <template v-if="currentTab === 'profile'">
         <div class="section">
+          <!-- 加载中状态 -->
+          <mdui-card v-if="authLoading" class="profile-card">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>正在检查登录状态...</p>
+            </div>
+          </mdui-card>
+
           <!-- 未登录状态 -->
-          <mdui-card v-if="!user.loggedIn" class="profile-card">
+          <mdui-card v-else-if="!user.loggedIn" class="profile-card">
             <div class="profile-header">
               <div class="avatar-placeholder">
                 <mdui-icon name="person" style="font-size: 48px;"></mdui-icon>
