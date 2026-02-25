@@ -1942,6 +1942,7 @@ function switchTab(tab: string) {
   background: var(--mdui-color-surface);
   transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
   will-change: transform;
+  z-index: 1;
 }
 
 /* Toast */
