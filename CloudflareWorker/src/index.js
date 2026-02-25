@@ -171,12 +171,23 @@ async function handleGitHubCallback(request, env, corsHeaders) {
 // 获取当前用户信息
 async function handleGetMe(request, env, corsHeaders) {
   const sessionId = getCookie(request, 'session_id');
+  const allCookies = request.headers.get('Cookie');
   
-  console.log('GetMe called, sessionId:', sessionId);
+  console.log('=== GetMe Debug ===');
+  console.log('All cookies:', allCookies);
+  console.log('Parsed sessionId:', sessionId);
+  console.log('Request origin:', request.headers.get('Origin'));
+  console.log('Request referer:', request.headers.get('Referer'));
   
   if (!sessionId) {
     console.log('No sessionId found in cookie');
-    return jsonResponse({ loggedIn: false }, 200, corsHeaders);
+    return jsonResponse({ 
+      loggedIn: false, 
+      debug: { 
+        reason: 'no_session_id',
+        allCookies: allCookies 
+      } 
+    }, 200, corsHeaders);
   }
 
   try {
@@ -184,7 +195,13 @@ async function handleGetMe(request, env, corsHeaders) {
     
     if (!sessionData) {
       console.log('Session not found in KV for sessionId:', sessionId);
-      return jsonResponse({ loggedIn: false }, 200, corsHeaders);
+      return jsonResponse({ 
+        loggedIn: false, 
+        debug: { 
+          reason: 'session_not_found',
+          sessionId: sessionId 
+        } 
+      }, 200, corsHeaders);
     }
 
     const user = JSON.parse(sessionData);
@@ -201,7 +218,11 @@ async function handleGetMe(request, env, corsHeaders) {
     }, 200, corsHeaders);
   } catch (error) {
     console.error('Error in handleGetMe:', error);
-    return jsonResponse({ loggedIn: false, error: 'Server error' }, 500, corsHeaders);
+    return jsonResponse({ 
+      loggedIn: false, 
+      error: 'Server error',
+      debug: { message: error.message }
+    }, 500, corsHeaders);
   }
 }
 
