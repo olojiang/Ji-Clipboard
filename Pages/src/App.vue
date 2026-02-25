@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import 'mdui/mdui.css'
 
 // 写死的数据
 const code = ref('')
