@@ -334,7 +334,8 @@ function clearAll() {
 
 // 添加剪贴板
 async function handleAddClipboard() {
-  if (!clipboardInput.value.trim()) {
+  // 检查输入是否为空
+  if (!clipboardInput.value || !clipboardInput.value.trim()) {
     clipboardError.value = '请输入剪贴板内容'
     return
   }
@@ -580,7 +581,6 @@ function switchTab(tab: string) {
                 variant="filled"
                 class="clipboard-btn"
                 :loading="isAddingClipboard"
-                :disabled="clipboardInput.trim() === ''"
                 @click="handleAddClipboard"
               >
                 <mdui-icon slot="icon" name="add"></mdui-icon>
