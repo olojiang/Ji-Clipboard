@@ -34,12 +34,16 @@ const selectedItems = ref<Set<number>>(new Set())
 const longPressTimer = ref<number | null>(null)
 const LONG_PRESS_DURATION = 800
 const swipeStartX = ref(0)
+const swipeStartY = ref(0)
 const SWIPE_THRESHOLD = 80
+const TAP_THRESHOLD = 10 // 点击阈值，小于这个值认为是点击而不是滑动
 let hasVibrated = false
+let isDragging = false // 是否开始拖动
 
 // 惯性滑动状态
 const velocity = ref(0)
 const lastX = ref(0)
+const lastY = ref(0)
 const lastTime = ref(0)
 let animationFrame: number | null = null
 
@@ -258,13 +262,17 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
     animationFrame = null
   }
   
-  swipeStartX.value = event.touches[0].clientX
-  lastX.value = swipeStartX.value
+  const touch = event.touches[0]
+  swipeStartX.value = touch.clientX
+  swipeStartY.value = touch.clientY
+  lastX.value = touch.clientX
+  lastY.value = touch.clientY
   lastTime.value = Date.now()
   velocity.value = 0
   hasVibrated = false
+  isDragging = false
   
-  console.log('[TouchStart] startX:', swipeStartX.value)
+  console.log('[TouchStart] startX:', swipeStartX.value, 'startY:', swipeStartY.value)
   
   myClipboards.value.forEach(i => {
     i.swipeX = 0
@@ -277,6 +285,7 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
     if (navigator.vibrate) navigator.vibrate(50)
     copyClipboard(item.content)
     longPressTimer.value = null
+    isDragging = true // 长按后不处理滑动
   }, LONG_PRESS_DURATION)
 }
 
@@ -285,37 +294,66 @@ function handleTouchMove(event: TouchEvent, item: any) {
   // 如果已经在多选模式，不处理滑动
   if (isMultiSelectMode.value) return
   
+  // 如果长按已触发，不处理滑动
+  if (isDragging) return
+  
+  const touch = event.touches[0]
+  const currentX = touch.clientX
+  const currentY = touch.clientY
+  
+  // 计算移动距离
+  const deltaX = Math.abs(currentX - swipeStartX.value)
+  const deltaY = Math.abs(currentY - swipeStartY.value)
+  
+  // 如果移动距离小于阈值，认为是点击/长按，不处理滑动
+  if (deltaX < TAP_THRESHOLD && deltaY < TAP_THRESHOLD) {
+    return
+  }
+  
+  // 如果垂直移动大于水平移动，认为是滚动，不处理滑动
+  if (deltaY > deltaX && deltaY > TAP_THRESHOLD) {
+    console.log('[TouchMove] 垂直滚动，取消长按和滑动')
+    if (longPressTimer.value) {
+      clearTimeout(longPressTimer.value)
+      longPressTimer.value = null
+    }
+    isDragging = true
+    return
+  }
+  
+  // 开始滑动了，取消长按
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
   
-  const currentX = event.touches[0].clientX
-  const currentTime = Date.now()
+  isDragging = true
   
-  const deltaX = currentX - lastX.value
+  const currentTime = Date.now()
+  const moveDeltaX = currentX - lastX.value
   const deltaTime = currentTime - lastTime.value
   if (deltaTime > 0) {
-    velocity.value = deltaX / deltaTime * 16
+    velocity.value = moveDeltaX / deltaTime * 16
   }
   
   lastX.value = currentX
+  lastY.value = currentY
   lastTime.value = currentTime
   
-  const diff = currentX - swipeStartX.value
+  const diffX = currentX - swipeStartX.value
   const maxSwipe = 150
-  let swipeX = diff
+  let swipeX = diffX
   if (swipeX > maxSwipe) swipeX = maxSwipe
   if (swipeX < -maxSwipe) swipeX = -maxSwipe
   
   item.swipeX = swipeX
   
   // 每移动50像素打印一次日志
-  if (Math.abs(diff) % 50 < 5) {
-    console.log('[TouchMove] diff:', diff, 'swipeX:', swipeX, 'velocity:', velocity.value)
+  if (Math.abs(diffX) % 50 < 5) {
+    console.log('[TouchMove] diffX:', diffX, 'swipeX:', swipeX, 'velocity:', velocity.value)
   }
   
-  if (diff < -SWIPE_THRESHOLD) {
+  if (diffX < -SWIPE_THRESHOLD) {
     item.swipeLeft = true
     item.swipeRight = false
     if (!hasVibrated) {
@@ -323,7 +361,7 @@ function handleTouchMove(event: TouchEvent, item: any) {
       console.log('[TouchMove] 左滑超过阈值')
       if (navigator.vibrate) navigator.vibrate(30)
     }
-  } else if (diff > SWIPE_THRESHOLD) {
+  } else if (diffX > SWIPE_THRESHOLD) {
     item.swipeRight = true
     item.swipeLeft = false
     if (!hasVibrated) {
