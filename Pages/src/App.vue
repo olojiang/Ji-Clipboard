@@ -284,9 +284,10 @@ async function handleShare() {
 }
 
 // 复制分享链接
-function copyShareLink() {
-  if (shareCode.value) {
-    const shareLink = `${BASE_URL}/view.html?code=${shareCode.value}`
+function copyShareLink(code?: string) {
+  const linkCode = code || shareCode.value
+  if (linkCode) {
+    const shareLink = `${BASE_URL}/view.html?code=${linkCode}`
     navigator.clipboard.writeText(shareLink).then(() => {
       alert('分享链接已复制到剪贴板！')
     }).catch(() => {
@@ -300,6 +301,11 @@ function copyShareLink() {
       alert('分享链接已复制到剪贴板！')
     })
   }
+}
+
+// 打开分享链接
+function openShare(code: string) {
+  window.open(`./view.html?code=${code}`, '_blank')
 }
 
 // 清空分享内容
@@ -596,7 +602,7 @@ function switchTab(tab: string) {
             </div>
             
             <mdui-list>
-              <mdui-list-item icon="history" headline="我的分享" @click="showMyShares = true"></mdui-list-item>
+              <mdui-list-item icon="history" headline="我的分享" @click="showMyShares = true; fetchMyShares()"></mdui-list-item>
               <mdui-list-item icon="settings" headline="设置"></mdui-list-item>
               <mdui-list-item icon="help" headline="帮助"></mdui-list-item>
             </mdui-list>
@@ -612,60 +618,59 @@ function switchTab(tab: string) {
         </div>
       </template>
 
-      <!-- 我的分享列表弹窗 -->
-      <mdui-dialog
-        :open="showMyShares"
-        @close="closeMyShares"
-        headline="我的分享"
-        style="max-width: 600px; width: 90%;"
+      <!-- 我的分享列表全屏遮罩 -->
+      <div
+        v-if="showMyShares"
+        class="fullscreen-overlay"
       >
-        <div v-if="mySharesLoading" class="loading-state">
-          <div class="spinner"></div>
-          <p>正在加载...</p>
+        <div class="overlay-header">
+          <mdui-top-app-bar class="overlay-app-bar">
+            <mdui-button-icon icon="arrow_back" @click="closeMyShares"></mdui-button-icon>
+            <mdui-top-app-bar-title>我的分享</mdui-top-app-bar-title>
+          </mdui-top-app-bar>
         </div>
         
-        <div v-else-if="mySharesError" class="error-state">
-          <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
-          <p>{{ mySharesError }}</p>
-          <mdui-button variant="filled" @click="fetchMyShares">重试</mdui-button>
+        <div class="overlay-content">
+          <div v-if="mySharesLoading" class="loading-state">
+            <div class="spinner"></div>
+            <p>正在加载...</p>
+          </div>
+          
+          <div v-else-if="mySharesError" class="error-state">
+            <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
+            <p>{{ mySharesError }}</p>
+            <mdui-button variant="filled" @click="fetchMyShares">重试</mdui-button>
+          </div>
+          
+          <div v-else-if="myShares.length === 0" class="empty-state">
+            <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
+            <p>暂无分享内容</p>
+          </div>
+          
+          <mdui-list v-else class="shares-list">
+            <mdui-list-item
+              v-for="share in myShares"
+              :key="share.code"
+              :headline="`提取码: ${share.code}`"
+              :description="`${formatDate(share.createdAt)} · 过期: ${formatDate(share.expiresAt)}`"
+              icon="description"
+            >
+              <div slot="end" style="display: flex; gap: 8px;">
+                <mdui-button-icon 
+                  icon="content_copy" 
+                  @click="copyShareLink(share.code)"
+                  title="复制链接"
+                ></mdui-button-icon>
+                <mdui-button-icon 
+                  icon="open_in_new" 
+                  @click="openShare(share.code)"
+                  title="查看"
+                ></mdui-button-icon>
+              </div>
+            </mdui-list-item>
+          </mdui-list>
         </div>
-        
-        <div v-else-if="myShares.length === 0" class="empty-state">
-          <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
-          <p>暂无分享内容</p>
-        </div>
-        
-        <mdui-list v-else>
-          <mdui-list-item
-            v-for="share in myShares"
-            :key="share.code"
-            :headline="`提取码: ${share.code}`"
-            :description="`${formatDate(share.createdAt)} · 过期: ${formatDate(share.expiresAt)}`"
-            icon="description"
-          >
-            <div slot="end" style="display: flex; gap: 8px;">
-              <mdui-button-icon 
-                icon="content_copy" 
-                @click="navigator.clipboard.writeText(`${BASE_URL}/view.html?code=${share.code}`)"
-                title="复制链接"
-              ></mdui-button-icon>
-              <mdui-button-icon 
-                icon="open_in_new" 
-                @click="window.open(`./view.html?code=${share.code}`, '_blank')"
-                title="查看"
-              ></mdui-button-icon>
-            </div>
-          </mdui-list-item>
-        </mdui-list>
-        
-        <mdui-button slot="action" variant="text" @click="closeMyShares">关闭</mdui-button>
-      </mdui-dialog>
-
-      <!-- 触发获取分享列表 -->
-      <mdui-snackbar
-        :open="showMyShares"
-        @opened="fetchMyShares"
-      ></mdui-snackbar>
+      </div>
     </main>
 
     <!-- 底部导航栏 -->
@@ -1192,6 +1197,41 @@ function switchTab(tab: string) {
 .error-state mdui-icon,
 .empty-state mdui-icon {
   margin-bottom: 16px;
+}
+
+/* Fullscreen Overlay */
+.fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mdui-color-surface);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay-header {
+  flex-shrink: 0;
+}
+
+.overlay-app-bar {
+  position: sticky;
+  top: 0;
+}
+
+.overlay-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.shares-list {
+  padding: 0;
 }
 
 /* Profile Card */
