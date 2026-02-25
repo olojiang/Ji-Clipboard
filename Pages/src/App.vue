@@ -62,6 +62,7 @@ const authLoading = ref(true)
 const clipboardInput = ref('')
 const isAddingClipboard = ref(false)
 const clipboardError = ref('')
+const showAddClipboardDialog = ref(false)
 const myClipboards = ref<Array<{
   content: string
   createdAt: number
@@ -378,6 +379,8 @@ async function handleAddClipboard() {
     // 清空输入
     clipboardInput.value = ''
     console.log('Input cleared, refreshing list...')
+    // 关闭弹窗
+    showAddClipboardDialog.value = false
     // 刷新列表
     await fetchMyClipboards()
     console.log('List refreshed')
@@ -387,6 +390,13 @@ async function handleAddClipboard() {
   } finally {
     isAddingClipboard.value = false
   }
+}
+
+// 关闭添加剪贴板弹窗
+function closeAddClipboardDialog() {
+  showAddClipboardDialog.value = false
+  clipboardInput.value = ''
+  clipboardError.value = ''
 }
 
 // 获取我的剪贴板列表
@@ -572,34 +582,6 @@ function switchTab(tab: string) {
 
           <!-- 已登录状态 -->
           <template v-else>
-            <!-- 添加剪贴板 -->
-            <mdui-card class="clipboard-card">
-              <h2 class="title">添加剪贴板</h2>
-              <p class="subtitle">输入文本内容，保存到您的个人剪贴板</p>
-
-              <textarea
-                v-model="clipboardInput"
-                class="clipboard-textarea"
-                placeholder="在此输入剪贴板内容..."
-                rows="1"
-              ></textarea>
-
-              <div v-if="clipboardError" class="error-message">
-                <mdui-icon name="error" style="font-size: 16px;"></mdui-icon>
-                {{ clipboardError }}
-              </div>
-
-              <mdui-button
-                variant="filled"
-                class="clipboard-btn"
-                :loading="isAddingClipboard"
-                @click="handleAddClipboard"
-              >
-                <mdui-icon slot="icon" name="add"></mdui-icon>
-                添加
-              </mdui-button>
-            </mdui-card>
-
             <!-- 我的剪贴板列表 -->
             <mdui-card class="clipboard-list-card">
               <div class="clipboard-list-header">
@@ -653,6 +635,45 @@ function switchTab(tab: string) {
                 </mdui-list-item>
               </mdui-list>
             </mdui-card>
+
+            <!-- 悬浮添加按钮 -->
+            <mdui-fab
+              class="fab-add"
+              icon="add"
+              @click="showAddClipboardDialog = true"
+            ></mdui-fab>
+
+            <!-- 添加剪贴板弹窗 -->
+            <mdui-dialog
+              :open="showAddClipboardDialog"
+              @close="closeAddClipboardDialog"
+              headline="添加剪贴板"
+              style="max-width: 500px; width: 90%;"
+            >
+              <textarea
+                v-model="clipboardInput"
+                class="clipboard-dialog-textarea"
+                placeholder="在此输入剪贴板内容..."
+                rows="3"
+              ></textarea>
+
+              <div v-if="clipboardError" class="error-message" style="margin-top: 8px;">
+                <mdui-icon name="error" style="font-size: 16px;"></mdui-icon>
+                {{ clipboardError }}
+              </div>
+
+              <mdui-button
+                slot="action"
+                variant="text"
+                @click="closeAddClipboardDialog"
+              >取消</mdui-button>
+              <mdui-button
+                slot="action"
+                variant="filled"
+                :loading="isAddingClipboard"
+                @click="handleAddClipboard"
+              >添加</mdui-button>
+            </mdui-dialog>
           </template>
         </div>
       </template>
@@ -1570,22 +1591,18 @@ function switchTab(tab: string) {
   --mdui-button-height: 48px;
 }
 
-/* Clipboard Card */
-.clipboard-card {
-  padding: 24px;
-  width: 100%;
-  box-sizing: border-box;
-  margin-bottom: 16px;
+/* FAB Add Button */
+.fab-add {
+  position: fixed;
+  right: 16px;
+  bottom: 80px;
+  z-index: 100;
 }
 
-.clipboard-input {
+/* Clipboard Dialog Textarea */
+.clipboard-dialog-textarea {
   width: 100%;
-  margin-bottom: 16px;
-}
-
-.clipboard-textarea {
-  width: 100%;
-  min-height: 48px;
+  min-height: 80px;
   padding: 12px 16px;
   border: 1px solid var(--mdui-color-outline);
   border-radius: 8px;
@@ -1595,17 +1612,11 @@ function switchTab(tab: string) {
   resize: vertical;
   background: var(--mdui-color-surface);
   color: var(--mdui-color-on-surface);
-  margin-bottom: 16px;
 }
 
-.clipboard-textarea:focus {
+.clipboard-dialog-textarea:focus {
   outline: none;
   border-color: var(--mdui-color-primary);
-}
-
-.clipboard-btn {
-  width: 100%;
-  --mdui-button-height: 48px;
 }
 
 /* Clipboard List Card */
