@@ -124,6 +124,12 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   // 生成 session ID
   const sessionId = generateRandomString(32);
   
+  // 检查该用户是否已有会话，如果有则删除旧会话
+  const existingSessionId = await env.AUTH_KV.get(`user_session:${githubUser.id}`);
+  if (existingSessionId) {
+    await env.AUTH_KV.delete(`session:${existingSessionId}`);
+  }
+  
   // 存储用户会话到 KV（7天过期）
   const sessionData = {
     userId: githubUser.id,
