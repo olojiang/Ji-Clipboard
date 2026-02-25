@@ -577,15 +577,17 @@ function switchTab(tab: string) {
               <h2 class="title">添加剪贴板</h2>
               <p class="subtitle">输入文本内容，保存到您的个人剪贴板</p>
 
-              <mdui-text-field
+              <textarea
                 v-model="clipboardInput"
-                label="剪贴板内容"
-                class="clipboard-input"
+                class="clipboard-textarea"
+                placeholder="在此输入剪贴板内容..."
                 rows="1"
-                multiline
-                :error="!!clipboardError"
-                :error-text="clipboardError"
-              ></mdui-text-field>
+              ></textarea>
+
+              <div v-if="clipboardError" class="error-message">
+                <mdui-icon name="error" style="font-size: 16px;"></mdui-icon>
+                {{ clipboardError }}
+              </div>
 
               <mdui-button
                 variant="filled"
@@ -1579,6 +1581,26 @@ function switchTab(tab: string) {
 .clipboard-input {
   width: 100%;
   margin-bottom: 16px;
+}
+
+.clipboard-textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--mdui-color-outline);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+  background: var(--mdui-color-surface);
+  color: var(--mdui-color-on-surface);
+  margin-bottom: 16px;
+}
+
+.clipboard-textarea:focus {
+  outline: none;
+  border-color: var(--mdui-color-primary);
 }
 
 .clipboard-btn {
