@@ -70,6 +70,10 @@ const myClipboards = ref<Array<{
 const clipboardsLoading = ref(false)
 const clipboardsError = ref('')
 
+// 长按复制状态
+const longPressTimer = ref<number | null>(null)
+const LONG_PRESS_DURATION = 800 // 长按持续时间（毫秒）
+
 // 我的分享列表状态
 const showMyShares = ref(false)
 const myShares = ref<Array<{
@@ -447,6 +451,38 @@ function copyClipboard(content: string) {
   })
 }
 
+// 长按开始（触摸）
+function handleTouchStart(content: string) {
+  longPressTimer.value = window.setTimeout(() => {
+    copyClipboard(content)
+    longPressTimer.value = null
+  }, LONG_PRESS_DURATION)
+}
+
+// 长按结束（触摸）
+function handleTouchEnd() {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+}
+
+// 长按开始（鼠标）
+function handleMouseDown(content: string) {
+  longPressTimer.value = window.setTimeout(() => {
+    copyClipboard(content)
+    longPressTimer.value = null
+  }, LONG_PRESS_DURATION)
+}
+
+// 长按结束（鼠标）
+function handleMouseUp() {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+}
+
 // 删除剪贴板
 async function deleteClipboard(index: number) {
   const item = myClipboards.value[index]
@@ -613,26 +649,35 @@ function switchTab(tab: string) {
               </div>
 
               <mdui-list v-else class="clipboard-list">
-                <mdui-list-item
+                <div
                   v-for="(item, index) in myClipboards"
                   :key="index"
-                  :headline="item.content.substring(0, 50) + (item.content.length > 50 ? '...' : '')"
-                  :description="formatDate(item.createdAt)"
-                  icon="content_paste"
+                  class="clipboard-item"
+                  @touchstart="handleTouchStart(item.content)"
+                  @touchend="handleTouchEnd"
+                  @mousedown="handleMouseDown(item.content)"
+                  @mouseup="handleMouseUp"
+                  @mouseleave="handleMouseUp"
                 >
-                  <div slot="end" style="display: flex; gap: 8px;">
-                    <mdui-button-icon
-                      icon="content_copy"
-                      @click="copyClipboard(item.content)"
-                      title="复制"
-                    ></mdui-button-icon>
-                    <mdui-button-icon
-                      icon="delete"
-                      @click="deleteClipboard(index)"
-                      title="删除"
-                    ></mdui-button-icon>
-                  </div>
-                </mdui-list-item>
+                  <mdui-list-item
+                    :headline="item.content.substring(0, 50) + (item.content.length > 50 ? '...' : '')"
+                    :description="formatDate(item.createdAt)"
+                    icon="content_paste"
+                  >
+                    <div slot="end" style="display: flex; gap: 8px;">
+                      <mdui-button-icon
+                        icon="content_copy"
+                        @click="copyClipboard(item.content)"
+                        title="复制"
+                      ></mdui-button-icon>
+                      <mdui-button-icon
+                        icon="delete"
+                        @click="deleteClipboard(index)"
+                        title="删除"
+                      ></mdui-button-icon>
+                    </div>
+                  </mdui-list-item>
+                </div>
               </mdui-list>
             </mdui-card>
 
@@ -1643,6 +1688,17 @@ function switchTab(tab: string) {
 
 .clipboard-list {
   padding: 0;
+}
+
+.clipboard-item {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.clipboard-item:active {
+  background: var(--mdui-color-surface-container-highest);
 }
 
 /* Bottom Navigation */
