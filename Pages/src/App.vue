@@ -1466,8 +1466,8 @@ function switchTab(tab: string) {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--mdui-color-surface-container-low);
-  z-index: 1000;
+  background: var(--mdui-color-surface);
+  z-index: 9999;
   display: flex;
   flex-direction: column;
 }
@@ -1486,7 +1486,7 @@ function switchTab(tab: string) {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  background: var(--mdui-color-surface-container-low);
+  background: var(--mdui-color-surface);
 }
 
 .shares-list {
