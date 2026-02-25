@@ -5,16 +5,16 @@ compatibility_date = "2024-01-01"
 # KV 命名空间
 [[kv_namespaces]]
 binding = "AUTH_KV"
-id = "你的_AUTH_KV_ID"
+id = "4d3108cf9f304c01a5705594b5cb89a0"
 
 [[kv_namespaces]]
 binding = "CLIPBOARD_KV"
-id = "你的_CLIPBOARD_KV_ID"
+id = "90fd29663db94abd90f26b9ccc8603e7"
 
 # 环境变量（敏感信息用 wrangler secret 设置）
 [vars]
-FRONTEND_URL = "https://你的前端地址.pages.dev"
-WORKER_URL = "https://你的worker地址.workers.dev"
+FRONTEND_URL = "https://olojiang.github.io/Ji-Clipboard"
+WORKER_URL = "https://ji-clipboard-worker.olojiang.workers.dev"
 
 #  secrets（通过 wrangler secret put 设置）:
 #  GITHUB_CLIENT_ID

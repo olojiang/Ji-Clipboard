@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 
 // API 基础地址
-const API_BASE = import.meta.env.VITE_API_URL || 'https://你的worker地址.workers.dev'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
 
 // 当前页面标签
 const currentTab = ref('fetch')
