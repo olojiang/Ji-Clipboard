@@ -12,8 +12,8 @@ const md = new MarkdownIt({
 // API 基础地址
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
 
-// 页面基础 URL（用于生成分享链接）
-const BASE_URL = window.location.origin
+// 页面基础 URL（用于生成分享链接）- 使用完整路径
+const BASE_URL = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}`
 
 // 当前页面标签
 const currentTab = ref('fetch')
