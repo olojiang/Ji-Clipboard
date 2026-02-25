@@ -253,7 +253,16 @@ async function handleLogout(request, env, corsHeaders) {
 
 // 保存剪贴板数据
 async function handleSaveClipboard(request, env, corsHeaders) {
-  const sessionId = getCookie(request, 'session_id');
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
   let userId = null;
 
   if (sessionId) {
@@ -261,6 +270,11 @@ async function handleSaveClipboard(request, env, corsHeaders) {
     if (sessionData) {
       userId = JSON.parse(sessionData).userId;
     }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
   }
 
   const body = await request.json();
