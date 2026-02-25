@@ -389,8 +389,13 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
     longPressTimer.value = null
   }
 
-  // 保存是否需要进入多选模式的状态
-  const shouldEnterMultiSelect = item.swipeRight
+  // 如果右滑超过阈值，立即进入多选模式，同时播放回弹动画
+  if (item.swipeRight) {
+    console.log('[TouchEnd] 右滑超过阈值，立即进入多选模式并播放回弹动画')
+    isMultiSelectMode.value = true
+    selectedItems.value.clear()
+    selectedItems.value.add(index)
+  }
 
   // 惯性滑动
   const inertia = () => {
@@ -426,15 +431,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       item.swipeLeft = false
       item.swipeRight = false
       hasVibrated = false
-
-      // 回弹完成后，如果需要进入多选模式，则进入
-      if (shouldEnterMultiSelect) {
-        console.log('[TouchEnd] 回弹完成，进入多选模式')
-        isMultiSelectMode.value = true
-        selectedItems.value.clear()
-        selectedItems.value.add(index)
-      }
-
       return
     }
 
