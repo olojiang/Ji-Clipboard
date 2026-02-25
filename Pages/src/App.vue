@@ -334,9 +334,13 @@ function clearAll() {
 
 // 添加剪贴板
 async function handleAddClipboard() {
+  console.log('handleAddClipboard called')
+  console.log('clipboardInput.value:', clipboardInput.value)
+  
   // 检查输入是否为空
   if (!clipboardInput.value || !clipboardInput.value.trim()) {
     clipboardError.value = '请输入剪贴板内容'
+    console.log('Input is empty, returning')
     return
   }
 
@@ -349,6 +353,8 @@ async function handleAddClipboard() {
     if (sessionId) {
       url += `?session=${sessionId}`
     }
+    
+    console.log('Sending request to:', url)
 
     const response = await fetch(url, {
       method: 'POST',
@@ -361,6 +367,8 @@ async function handleAddClipboard() {
         content: clipboardInput.value.trim()
       })
     })
+    
+    console.log('Response status:', response.status)
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
@@ -369,8 +377,10 @@ async function handleAddClipboard() {
 
     // 清空输入
     clipboardInput.value = ''
+    console.log('Input cleared, refreshing list...')
     // 刷新列表
     await fetchMyClipboards()
+    console.log('List refreshed')
   } catch (error) {
     console.error('添加剪贴板失败:', error)
     clipboardError.value = (error as Error).message || '添加失败，请重试'
