@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 
 // 初始化 markdown-it
@@ -202,6 +202,22 @@ async function logout() {
     console.error('登出失败:', error)
   }
 }
+
+// 监听当前标签页变化
+watch(currentTab, (newTab) => {
+  if (newTab === 'clipboard' && user.value.loggedIn && !authLoading.value) {
+    // 切换到剪贴板标签页且已登录时，自动加载数据
+    fetchMyClipboards()
+  }
+})
+
+// 监听登录状态变化
+watch(() => user.value.loggedIn, (loggedIn) => {
+  if (loggedIn && currentTab.value === 'clipboard') {
+    // 登录成功且当前在剪贴板标签页时，自动加载数据
+    fetchMyClipboards()
+  }
+})
 
 // 处理获取剪贴板
 async function handleFetch() {
