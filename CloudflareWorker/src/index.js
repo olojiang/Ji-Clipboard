@@ -155,8 +155,8 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   // 使用 SameSite=None 因为 Worker 和前端是不同域名
   const redirectUrl = env.FRONTEND_URL || '/';
   
-  // 设置新 cookie
-  const newCookie = `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Max-Age=${7 * 24 * 60 * 60}; Path=/`;
+  // 设置新 cookie - 添加 Domain 属性
+  const newCookie = `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Max-Age=${7 * 24 * 60 * 60}; Path=/; Domain=olojiang.workers.dev`;
   
   return new Response(null, {
     status: 302,
