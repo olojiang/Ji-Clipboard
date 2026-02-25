@@ -1,0 +1,515 @@
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+
+const props = defineProps<{
+  user: { loggedIn: boolean }
+  authLoading: boolean
+}>()
+
+const emit = defineEmits(['showToast'])
+
+// API 基础地址
+const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
+
+// 剪贴板状态
+const clipboardInput = ref('')
+const isAddingClipboard = ref(false)
+const clipboardError = ref('')
+const showAddClipboardDialog = ref(false)
+const myClipboards = ref<Array<{
+  content: string
+  createdAt: number
+  swipeX?: number
+  swipeLeft?: boolean
+  swipeRight?: boolean
+}>>([])
+const clipboardsLoading = ref(false)
+const clipboardsError = ref('')
+
+// 长按和滑动状态
+const longPressTimer = ref<number | null>(null)
+const LONG_PRESS_DURATION = 800
+const swipeStartX = ref(0)
+const swipeCurrentX = ref(0)
+const SWIPE_THRESHOLD = 80
+let hasVibrated = false
+
+// 监听登录状态，自动加载数据
+watch(() => props.user.loggedIn, (loggedIn) => {
+  if (loggedIn) {
+    fetchMyClipboards()
+  }
+}, { immediate: true })
+
+// 格式化日期
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// 关闭添加弹窗
+function closeAddClipboardDialog() {
+  showAddClipboardDialog.value = false
+  clipboardInput.value = ''
+  clipboardError.value = ''
+}
+
+// 添加剪贴板
+async function handleAddClipboard() {
+  if (!clipboardInput.value || !clipboardInput.value.trim()) {
+    clipboardError.value = '请输入剪贴板内容'
+    return
+  }
+
+  clipboardError.value = ''
+  isAddingClipboard.value = true
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard-items`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        content: clipboardInput.value.trim()
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    }
+
+    clipboardInput.value = ''
+    showAddClipboardDialog.value = false
+    await fetchMyClipboards()
+    emit('showToast', '添加成功')
+  } catch (error) {
+    console.error('添加剪贴板失败:', error)
+    clipboardError.value = (error as Error).message || '添加失败，请重试'
+  } finally {
+    isAddingClipboard.value = false
+  }
+}
+
+// 获取剪贴板列表
+async function fetchMyClipboards() {
+  if (!props.user.loggedIn) return
+  
+  clipboardsLoading.value = true
+  clipboardsError.value = ''
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard-items`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    myClipboards.value = data.items || []
+  } catch (error) {
+    console.error('获取剪贴板列表失败:', error)
+    clipboardsError.value = '获取剪贴板列表失败，请稍后重试'
+  } finally {
+    clipboardsLoading.value = false
+  }
+}
+
+// 复制剪贴板内容
+function copyClipboard(content: string) {
+  navigator.clipboard.writeText(content).then(() => {
+    emit('showToast', '已复制到剪贴板')
+  }).catch(() => {
+    const input = document.createElement('input')
+    input.value = content
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+    emit('showToast', '已复制到剪贴板')
+  })
+}
+
+// 删除剪贴板
+async function deleteClipboard(index: number) {
+  const item = myClipboards.value[index]
+  if (!item) return
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard-items/${index}`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    await fetchMyClipboards()
+    emit('showToast', '已删除')
+  } catch (error) {
+    console.error('删除剪贴板失败:', error)
+    emit('showToast', '删除失败')
+  }
+}
+
+// 触摸开始
+function handleTouchStart(event: TouchEvent, item: any) {
+  swipeStartX.value = event.touches[0].clientX
+  swipeCurrentX.value = swipeStartX.value
+  hasVibrated = false
+  
+  myClipboards.value.forEach(i => {
+    i.swipeX = 0
+    i.swipeLeft = false
+    i.swipeRight = false
+  })
+  
+  longPressTimer.value = window.setTimeout(() => {
+    if (navigator.vibrate) navigator.vibrate(50)
+    copyClipboard(item.content)
+    longPressTimer.value = null
+  }, LONG_PRESS_DURATION)
+}
+
+// 触摸移动
+function handleTouchMove(event: TouchEvent, item: any) {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  
+  swipeCurrentX.value = event.touches[0].clientX
+  const diff = swipeCurrentX.value - swipeStartX.value
+  const maxSwipe = 150
+  let swipeX = diff
+  if (swipeX > maxSwipe) swipeX = maxSwipe
+  if (swipeX < -maxSwipe) swipeX = -maxSwipe
+  
+  item.swipeX = swipeX
+  
+  if (diff < -SWIPE_THRESHOLD) {
+    item.swipeLeft = true
+    item.swipeRight = false
+    if (!hasVibrated) {
+      hasVibrated = true
+      if (navigator.vibrate) navigator.vibrate(30)
+    }
+  } else if (diff > SWIPE_THRESHOLD) {
+    item.swipeRight = true
+    item.swipeLeft = false
+    if (!hasVibrated) {
+      hasVibrated = true
+      if (navigator.vibrate) navigator.vibrate(30)
+    }
+  } else {
+    item.swipeLeft = false
+    item.swipeRight = false
+    hasVibrated = false
+  }
+}
+
+// 触摸结束
+function handleTouchEnd(event: TouchEvent, item: any) {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  item.swipeX = 0
+  item.swipeLeft = false
+  item.swipeRight = false
+  hasVibrated = false
+}
+</script>
+
+<template>
+  <div class="section">
+    <!-- 加载中状态 -->
+    <mdui-card v-if="authLoading" class="clipboard-card">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>正在检查登录状态...</p>
+      </div>
+    </mdui-card>
+
+    <!-- 未登录状态 -->
+    <mdui-card v-else-if="!user.loggedIn" class="clipboard-card">
+      <div class="login-required-state">
+        <mdui-icon name="lock" style="font-size: 64px; color: var(--mdui-color-on-surface-variant);"></mdui-icon>
+        <h3 class="login-required-title">需要登录</h3>
+        <p class="login-required-subtitle">请先使用 GitHub 登录后再使用剪贴板</p>
+      </div>
+    </mdui-card>
+
+    <!-- 已登录状态 -->
+    <template v-else>
+      <!-- 我的剪贴板列表 -->
+      <mdui-card class="clipboard-list-card">
+        <div class="clipboard-list-header">
+          <span class="clipboard-list-title">我的剪贴板</span>
+          <mdui-button variant="text" @click="fetchMyClipboards" :loading="clipboardsLoading">
+            <mdui-icon slot="icon" name="refresh"></mdui-icon>
+            刷新
+          </mdui-button>
+        </div>
+
+        <div v-if="clipboardsLoading" class="loading-state">
+          <div class="spinner"></div>
+          <p>正在加载...</p>
+        </div>
+
+        <div v-else-if="clipboardsError" class="error-state">
+          <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
+          <p>{{ clipboardsError }}</p>
+          <mdui-button variant="filled" @click="fetchMyClipboards">重试</mdui-button>
+        </div>
+
+        <div v-else-if="myClipboards.length === 0" class="empty-state">
+          <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
+          <p>暂无剪贴板内容</p>
+        </div>
+
+        <mdui-list v-else class="clipboard-list">
+          <div
+            v-for="(item, index) in myClipboards"
+            :key="index"
+            class="swipe-item"
+            :class="{ 'swiping-left': item.swipeLeft, 'swiping-right': item.swipeRight }"
+            @touchstart="handleTouchStart($event, item)"
+            @touchmove="handleTouchMove($event, item)"
+            @touchend="handleTouchEnd($event, item)"
+          >
+            <div class="swipe-bg swipe-bg-left">
+              <mdui-icon name="share" style="font-size: 24px; color: white;"></mdui-icon>
+              <span>分享</span>
+            </div>
+            <div class="swipe-bg swipe-bg-right">
+              <mdui-icon name="check_box" style="font-size: 24px; color: white;"></mdui-icon>
+              <span>多选</span>
+            </div>
+            <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
+              <mdui-list-item
+                :headline="item.content.substring(0, 50) + (item.content.length > 50 ? '...' : '')"
+                :description="formatDate(item.createdAt)"
+                icon="content_paste"
+              >
+                <div slot="end" style="display: flex; gap: 8px;">
+                  <mdui-button-icon icon="content_copy" @click.stop="copyClipboard(item.content)" title="复制"></mdui-button-icon>
+                  <mdui-button-icon icon="delete" @click.stop="deleteClipboard(index)" title="删除"></mdui-button-icon>
+                </div>
+              </mdui-list-item>
+            </div>
+          </div>
+        </mdui-list>
+      </mdui-card>
+
+      <!-- 悬浮添加按钮 -->
+      <mdui-fab class="fab-add" icon="add" @click="showAddClipboardDialog = true"></mdui-fab>
+
+      <!-- 添加剪贴板弹窗 -->
+      <mdui-dialog
+        :open="showAddClipboardDialog"
+        @close="closeAddClipboardDialog"
+        headline="添加剪贴板"
+        style="max-width: 500px; width: 90%;"
+      >
+        <textarea
+          v-model="clipboardInput"
+          class="clipboard-dialog-textarea"
+          placeholder="在此输入剪贴板内容..."
+          rows="3"
+        ></textarea>
+        <div v-if="clipboardError" class="error-message" style="margin-top: 8px;">
+          <mdui-icon name="error" style="font-size: 16px;"></mdui-icon>
+          {{ clipboardError }}
+        </div>
+        <mdui-button slot="action" variant="text" @click="closeAddClipboardDialog">取消</mdui-button>
+        <mdui-button slot="action" variant="filled" :loading="isAddingClipboard" @click="handleAddClipboard">添加</mdui-button>
+      </mdui-dialog>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.clipboard-card {
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.loading-state, .error-state, .empty-state {
+  text-align: center;
+  padding: 24px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--mdui-color-surface-container-highest);
+  border-top-color: var(--mdui-color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.login-required-state {
+  text-align: center;
+  padding: 24px;
+}
+
+.login-required-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 24px 0 8px 0;
+}
+
+.login-required-subtitle {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
+  margin: 0 0 24px 0;
+}
+
+.clipboard-list-card {
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.clipboard-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+
+.clipboard-list-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mdui-color-on-surface-variant);
+  letter-spacing: 1px;
+}
+
+.clipboard-list {
+  padding: 0;
+}
+
+.swipe-item {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  touch-action: pan-y;
+}
+
+.swipe-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.swipe-bg-left {
+  left: 0;
+  background: #6750A4;
+  color: white;
+  justify-content: flex-end;
+}
+
+.swipe-bg-right {
+  right: 0;
+  background: #4CAF50;
+  color: white;
+  justify-content: flex-start;
+}
+
+.swipe-bg span {
+  margin-left: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.swipe-content {
+  position: relative;
+  background: var(--mdui-color-surface);
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  will-change: transform;
+  z-index: 1;
+}
+
+.fab-add {
+  position: fixed;
+  right: 16px;
+  bottom: 80px;
+  z-index: 100;
+}
+
+.clipboard-dialog-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px 16px;
+  border: 1px solid var(--mdui-color-outline);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+  background: var(--mdui-color-surface);
+  color: var(--mdui-color-on-surface);
+}
+
+.clipboard-dialog-textarea:focus {
+  outline: none;
+  border-color: var(--mdui-color-primary);
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mdui-color-error);
+  font-size: 14px;
+}
+</style>
