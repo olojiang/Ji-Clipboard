@@ -377,27 +377,48 @@ function handleTouchMove(event: TouchEvent, item: any) {
 // 触摸结束 - 添加惯性回弹
 function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   console.log('[TouchEnd] index:', index, 'swipeRight:', item.swipeRight, 'swipeX:', item.swipeX)
-  
+
   // 如果已经在多选模式，不处理
   if (isMultiSelectMode.value) {
     console.log('[TouchEnd] 多选模式，跳过')
     return
   }
-  
+
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  
+
+  // 如果右滑超过阈值，立即进入多选模式，不执行回弹动画
+  if (item.swipeRight) {
+    console.log('[TouchEnd] 右滑超过阈值，立即进入多选模式')
+    isMultiSelectMode.value = true
+    selectedItems.value.clear()
+    selectedItems.value.add(index)
+
+    // 立即重置滑动状态（无动画）
+    item.swipeX = 0
+    item.swipeLeft = false
+    item.swipeRight = false
+    hasVibrated = false
+
+    // 停止任何正在进行的动画
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame)
+      animationFrame = null
+    }
+    return
+  }
+
   // 惯性滑动
   const inertia = () => {
     if (Math.abs(velocity.value) < 0.5) {
       springBack()
       return
     }
-    
+
     item.swipeX = (item.swipeX || 0) + velocity.value
-    
+
     const maxSwipe = 150
     if (item.swipeX > maxSwipe) {
       item.swipeX = maxSwipe
@@ -407,41 +428,29 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       item.swipeX = -maxSwipe
       velocity.value = 0
     }
-    
+
     velocity.value *= 0.95
     animationFrame = requestAnimationFrame(inertia)
   }
-  
+
   // 回弹动画
   const springBack = () => {
     const targetX = 0
     const currentX = item.swipeX || 0
     const diff = targetX - currentX
-    
+
     if (Math.abs(diff) < 0.5) {
-      // 先保存状态，再重置
-      const shouldEnterMultiSelect = item.swipeRight
-      
       item.swipeX = 0
       item.swipeLeft = false
       item.swipeRight = false
       hasVibrated = false
-      
-      // 如果右滑超过阈值，进入多选模式
-      if (shouldEnterMultiSelect) {
-        console.log('[TouchEnd] 进入多选模式')
-        isMultiSelectMode.value = true
-        selectedItems.value.clear()
-        selectedItems.value.add(index)
-      }
-      
       return
     }
-    
+
     item.swipeX = currentX + diff * 0.15
     animationFrame = requestAnimationFrame(springBack)
   }
-  
+
   animationFrame = requestAnimationFrame(inertia)
 }
 </script>
