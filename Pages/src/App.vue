@@ -382,6 +382,19 @@ function switchTab(tab: string) {
     <!-- 主内容区 -->
     <main class="main-content">
       
+      <!-- 剪贴板页面 -->
+      <template v-if="currentTab === 'clipboard'">
+        <div class="section">
+          <mdui-card class="clipboard-card">
+            <div class="empty-state">
+              <mdui-icon name="content_paste" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
+              <h2>剪贴板</h2>
+              <p>功能开发中...</p>
+            </div>
+          </mdui-card>
+        </div>
+      </template>
+      
       <!-- 获取页面 -->
       <template v-if="currentTab === 'fetch'">
         <!-- 显示获取到的内容 -->
@@ -661,6 +674,10 @@ function switchTab(tab: string) {
       :value="currentTab"
       @change="(e: any) => switchTab(e.target.value)"
     >
+      <mdui-navigation-bar-item icon="content_paste" value="clipboard">
+        剪贴板
+      </mdui-navigation-bar-item>
+      
       <mdui-navigation-bar-item icon="download" value="fetch">
         获取
       </mdui-navigation-bar-item>
@@ -1141,6 +1158,13 @@ function switchTab(tab: string) {
   font-size: 14px;
   color: var(--mdui-color-on-surface-variant);
   margin: 0 0 24px 0;
+}
+
+/* Clipboard Card */
+.clipboard-card {
+  padding: 48px 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* My Shares Dialog */
