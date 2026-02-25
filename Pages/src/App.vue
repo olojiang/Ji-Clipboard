@@ -50,25 +50,34 @@ const recentClips = ref([
 
 // 页面加载时获取用户信息
 onMounted(async () => {
+  console.log('Page mounted, fetching user info...')
+  console.log('API_BASE:', API_BASE)
   await fetchUserInfo()
 })
 
 // 获取用户信息
 async function fetchUserInfo() {
   try {
+    console.log('Fetching user info from:', `${API_BASE}/api/me`)
     const response = await fetch(`${API_BASE}/api/me`, {
       credentials: 'include',
       headers: {
         'Accept': 'application/json',
       }
     })
+    console.log('Response status:', response.status)
+    console.log('Response headers:', [...response.headers.entries()])
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
+    
     const data = await response.json()
+    console.log('User data received:', data)
     user.value = data
   } catch (error) {
     console.error('获取用户信息失败:', error)
+    console.error('Error details:', error.message, error.stack)
     user.value = { loggedIn: false }
   }
 }
