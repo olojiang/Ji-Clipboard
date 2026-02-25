@@ -213,20 +213,21 @@ async function handleShare() {
   }
 }
 
-// 复制分享码
-function copyShareCode() {
+// 复制分享链接
+function copyShareLink() {
   if (shareCode.value) {
-    navigator.clipboard.writeText(shareCode.value).then(() => {
-      alert('分享码已复制到剪贴板！')
+    const shareLink = `${window.location.origin}/view.html?code=${shareCode.value}`
+    navigator.clipboard.writeText(shareLink).then(() => {
+      alert('分享链接已复制到剪贴板！')
     }).catch(() => {
       // 降级方案
       const input = document.createElement('input')
-      input.value = shareCode.value
+      input.value = shareLink
       document.body.appendChild(input)
       input.select()
       document.execCommand('copy')
       document.body.removeChild(input)
-      alert('分享码已复制到剪贴板！')
+      alert('分享链接已复制到剪贴板！')
     })
   }
 }
@@ -333,12 +334,12 @@ function switchTab(tab: string) {
             <div v-if="shareCode" class="success-state">
               <mdui-icon name="check_circle" style="font-size: 64px; color: var(--mdui-color-primary);"></mdui-icon>
               <h3 class="success-title">分享成功！</h3>
-              <p class="success-subtitle">您的分享码</p>
-              <div class="share-code-display">{{ shareCode }}</div>
+              <p class="success-subtitle">您的分享链接</p>
+              <div class="share-link-display">{{ window.location.origin }}/view.html?code={{ shareCode }}</div>
               <div class="success-actions">
-                <mdui-button variant="filled" @click="copyShareCode">
+                <mdui-button variant="filled" @click="copyShareLink">
                   <mdui-icon slot="icon" name="content_copy"></mdui-icon>
-                  复制分享码
+                  复制分享链接
                 </mdui-button>
                 <mdui-button variant="text" @click="clearShareContent">
                   继续分享
@@ -769,6 +770,18 @@ function switchTab(tab: string) {
   letter-spacing: 8px;
   color: var(--mdui-color-primary);
   margin: 16px 0 24px 0;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.share-link-display {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mdui-color-primary);
+  margin: 16px 0 24px 0;
+  padding: 12px 16px;
+  background: var(--mdui-color-surface-container-highest);
+  border-radius: 8px;
+  word-break: break-all;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
 }
 
