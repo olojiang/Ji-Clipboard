@@ -570,7 +570,7 @@ function switchTab(tab: string) {
                 v-model="clipboardInput"
                 label="剪贴板内容"
                 class="clipboard-input"
-                rows="4"
+                rows="1"
                 multiline
                 :error="!!clipboardError"
                 :error-text="clipboardError"
@@ -580,7 +580,7 @@ function switchTab(tab: string) {
                 variant="filled"
                 class="clipboard-btn"
                 :loading="isAddingClipboard"
-                :disabled="!clipboardInput.trim()"
+                :disabled="clipboardInput.trim() === ''"
                 @click="handleAddClipboard"
               >
                 <mdui-icon slot="icon" name="add"></mdui-icon>
