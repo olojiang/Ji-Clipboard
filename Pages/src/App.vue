@@ -411,7 +411,7 @@ function switchTab(tab: string) {
         <!-- 提取区域 -->
         <div v-else class="section">
           <mdui-card class="fetch-card">
-            <h2 class="title">提取剪贴板</h2>
+            <h2 class="title">获取分享</h2>
             <p class="subtitle">输入5位提取码，立即获取分享的内容</p>
             
             <mdui-text-field 
