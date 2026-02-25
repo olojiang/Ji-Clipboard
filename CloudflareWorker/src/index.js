@@ -6,12 +6,14 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // CORS 头
+    // CORS 头 - 必须指定具体域名，不能是 *，因为使用了 credentials
+    const origin = request.headers.get('Origin') || env.FRONTEND_URL;
     const corsHeaders = {
-      'Access-Control-Allow-Origin': env.FRONTEND_URL || '*',
+      'Access-Control-Allow-Origin': origin || 'https://olojiang.github.io',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
       'Access-Control-Allow-Credentials': 'true',
+      'Vary': 'Origin',
     };
 
     if (request.method === 'OPTIONS') {
