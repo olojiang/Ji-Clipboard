@@ -4,7 +4,7 @@ import ClipboardPage from './components/ClipboardPage.vue'
 import SharePage from './components/SharePage.vue'
 import FetchPage from './components/FetchPage.vue'
 import ProfilePage from './components/ProfilePage.vue'
-import MySharesOverlay from './components/MySharesOverlay.vue'
+import MySharesPage from './components/MySharesPage.vue'
 import Toast from './components/Toast.vue'
 
 // API 基础地址
@@ -15,6 +15,9 @@ const BASE_URL = `${window.location.origin}${window.location.pathname.replace(/\
 
 // 当前页面标签
 const currentTab = ref('clipboard')
+
+// 我的分享页面显示状态
+const showMySharesPage = ref(false)
 
 // 用户信息
 const user = ref<{
@@ -31,10 +34,6 @@ const user = ref<{
 // 登录状态加载中
 const authLoading = ref(true)
 
-// 我的分享弹窗
-const showMyShares = ref(false)
-const mySharesRef = ref<InstanceType<typeof MySharesOverlay> | null>(null)
-
 // Toast 提示
 const toastMessage = ref('')
 const showToast = ref(false)
@@ -43,7 +42,9 @@ const showToast = ref(false)
 onMounted(async () => {
   // 检查 URL hash
   const hash = window.location.hash.replace('#', '')
-  if (hash && ['clipboard', 'fetch', 'share', 'profile'].includes(hash)) {
+  if (hash === 'my-shares') {
+    showMySharesPage.value = true
+  } else if (hash && ['clipboard', 'fetch', 'share', 'profile'].includes(hash)) {
     currentTab.value = hash
   }
 
@@ -113,15 +114,20 @@ async function logout() {
 // 切换标签页
 function switchTab(tab: string) {
   currentTab.value = tab
+  showMySharesPage.value = false
   window.history.replaceState({}, '', `#${tab}`)
 }
 
-// 显示我的分享
-function showMySharesDialog() {
-  showMyShares.value = true
-  setTimeout(() => {
-    mySharesRef.value?.onOpen()
-  }, 100)
+// 显示我的分享页面
+function showMySharesPageFn() {
+  showMySharesPage.value = true
+  window.history.replaceState({}, '', '#my-shares')
+}
+
+// 关闭我的分享页面
+function closeMySharesPage() {
+  showMySharesPage.value = false
+  window.history.replaceState({}, '', `#${currentTab.value}`)
 }
 
 // 显示 Toast
@@ -172,22 +178,21 @@ function hideToast() {
 
       <!-- 个人中心页面 -->
       <ProfilePage
-        v-if="currentTab === 'profile'"
+        v-if="currentTab === 'profile' && !showMySharesPage"
         :user="user"
         :auth-loading="authLoading"
         @login="loginWithGitHub"
         @logout="logout"
-        @show-my-shares="showMySharesDialog"
+        @show-my-shares="showMySharesPageFn"
+      />
+
+      <!-- 我的分享页面 -->
+      <MySharesPage
+        v-if="showMySharesPage"
+        :base-url="BASE_URL"
+        @close="closeMySharesPage"
       />
     </main>
-
-    <!-- 我的分享弹窗 -->
-    <MySharesOverlay
-      ref="mySharesRef"
-      :show="showMyShares"
-      :base-url="BASE_URL"
-      @close="showMyShares = false"
-    />
 
     <!-- Toast 提示 -->
     <Toast
