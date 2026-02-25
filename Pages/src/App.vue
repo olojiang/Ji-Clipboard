@@ -1303,5 +1303,15 @@ function switchTab(tab: string) {
   bottom: 0;
   left: 0;
   right: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav::part(item) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav mdui-navigation-bar-item {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 </style>
