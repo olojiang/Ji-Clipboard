@@ -473,10 +473,15 @@ function handleTouchEnd(event: TouchEvent, item: any) {
 
 .swipe-content {
   position: relative;
-  background: var(--mdui-color-surface);
+  background: white;
   transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
   will-change: transform;
-  z-index: 1;
+  z-index: 2;
+}
+
+.swipe-content mdui-list-item {
+  background: white !important;
+  --mdui-color-surface: white;
 }
 
 .fab-add {
