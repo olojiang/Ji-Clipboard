@@ -983,7 +983,7 @@ function switchTab(tab: string) {
 
 /* Fetch Card */
 .fetch-card {
-  padding: 24px;
+  padding: 16px;
   text-align: center;
   width: 100%;
   box-sizing: border-box;
@@ -1040,7 +1040,7 @@ function switchTab(tab: string) {
 
 .empty-state {
   text-align: center;
-  padding: 32px;
+  padding: 24px;
   color: var(--mdui-color-on-surface-variant);
 }
 
@@ -1052,7 +1052,7 @@ function switchTab(tab: string) {
 
 /* Share Card */
 .share-card {
-  padding: 24px;
+  padding: 16px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -1226,7 +1226,7 @@ function switchTab(tab: string) {
 
 /* Content Display Card */
 .content-display-card {
-  padding: 24px;
+  padding: 16px;
 }
 
 .content-header {
@@ -1362,7 +1362,7 @@ function switchTab(tab: string) {
 /* Success State */
 .success-state {
   text-align: center;
-  padding: 32px 16px;
+  padding: 24px 16px;
 }
 
 .success-title {
@@ -1409,7 +1409,7 @@ function switchTab(tab: string) {
 /* Login Required State */
 .login-required-state {
   text-align: center;
-  padding: 48px 24px;
+  padding: 24px;
 }
 
 .login-required-title {
@@ -1427,7 +1427,7 @@ function switchTab(tab: string) {
 
 /* Clipboard Card */
 .clipboard-card {
-  padding: 48px 24px;
+  padding: 16px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -1437,7 +1437,7 @@ function switchTab(tab: string) {
 .error-state,
 .empty-state {
   text-align: center;
-  padding: 48px 24px;
+  padding: 24px;
 }
 
 .spinner {
@@ -1497,7 +1497,7 @@ function switchTab(tab: string) {
 
 /* Profile Card */
 .profile-card {
-  padding: 32px 24px;
+  padding: 16px;
   width: 100%;
   box-sizing: border-box;
 }
