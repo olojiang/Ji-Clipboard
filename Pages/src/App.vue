@@ -1,11 +1,36 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import MarkdownIt from 'markdown-it'
+
+// 初始化 markdown-it
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true
+})
 
 // API 基础地址
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
 
 // 当前页面标签
 const currentTab = ref('fetch')
+
+// 分享相关状态
+const shareContent = ref('')
+const shareCode = ref('')
+const isSharing = ref(false)
+const shareError = ref('')
+
+// 获取相关状态
+const fetchCode = ref('')
+const isFetching = ref(false)
+const fetchError = ref('')
+
+// 计算属性：预览渲染的 Markdown
+const renderedPreview = computed(() => {
+  if (!shareContent.value) return '<p style="color: #999; text-align: center; padding: 40px;">开始输入 Markdown 内容...</p>'
+  return md.render(shareContent.value)
+})
 
 // 用户信息
 const user = ref<{
@@ -20,7 +45,6 @@ const user = ref<{
 }>({ loggedIn: false })
 
 // 写死的数据
-const code = ref('')
 const recentClips = ref([
   {
     id: 1,
@@ -102,7 +126,7 @@ async function fetchUserInfo() {
     user.value = data
   } catch (error) {
     console.error('获取用户信息失败:', error)
-    console.error('Error details:', error.message, error.stack)
+    console.error('Error details:', (error as Error).message, (error as Error).stack)
     user.value = { loggedIn: false }
   }
 }
@@ -125,12 +149,93 @@ async function logout() {
   }
 }
 
-function handleFetch() {
-  alert(`正在获取: ${code.value || '空'}`)
+// 处理获取剪贴板
+async function handleFetch() {
+  if (!fetchCode.value || fetchCode.value.length !== 5) {
+    fetchError.value = '请输入5位提取码'
+    return
+  }
+  
+  fetchError.value = ''
+  isFetching.value = true
+  
+  try {
+    // 直接跳转到 view.html 页面
+    window.location.href = `./view.html?code=${fetchCode.value}`
+  } catch (error) {
+    console.error('获取失败:', error)
+    fetchError.value = '获取失败，请重试'
+    isFetching.value = false
+  }
 }
 
-function handleShare() {
-  alert('生成分享码!')
+// 处理分享
+async function handleShare() {
+  if (!shareContent.value.trim()) {
+    shareError.value = '请输入要分享的内容'
+    return
+  }
+  
+  shareError.value = ''
+  isSharing.value = true
+  shareCode.value = ''
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/clipboard`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        content: shareContent.value,
+        type: 'markdown',
+        expireHours: 24
+      })
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    shareCode.value = data.code
+    
+    // 清空输入
+    shareContent.value = ''
+  } catch (error) {
+    console.error('分享失败:', error)
+    shareError.value = (error as Error).message || '分享失败，请重试'
+  } finally {
+    isSharing.value = false
+  }
+}
+
+// 复制分享码
+function copyShareCode() {
+  if (shareCode.value) {
+    navigator.clipboard.writeText(shareCode.value).then(() => {
+      alert('分享码已复制到剪贴板！')
+    }).catch(() => {
+      // 降级方案
+      const input = document.createElement('input')
+      input.value = shareCode.value
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      document.body.removeChild(input)
+      alert('分享码已复制到剪贴板！')
+    })
+  }
+}
+
+// 清空分享内容
+function clearShareContent() {
+  shareContent.value = ''
+  shareCode.value = ''
+  shareError.value = ''
 }
 
 function clearAll() {
@@ -163,15 +268,18 @@ function switchTab(tab: string) {
             <p class="subtitle">输入5位提取码，立即获取分享的内容</p>
             
             <mdui-text-field 
-              v-model="code"
+              v-model="fetchCode"
               label="5位提取码"
               maxlength="5"
               class="code-input"
+              :error="!!fetchError"
+              :error-text="fetchError"
             ></mdui-text-field>
             
             <mdui-button 
               variant="filled"
               class="fetch-btn"
+              :loading="isFetching"
               @click="handleFetch"
             >
               <mdui-icon slot="icon" name="arrow_forward"></mdui-icon>
@@ -217,9 +325,68 @@ function switchTab(tab: string) {
       <!-- 分享页面 -->
       <template v-if="currentTab === 'share'">
         <div class="section">
-          <mdui-card class="placeholder-card">
-            <mdui-icon name="share" style="font-size: 48px; opacity: 0.5;"></mdui-icon>
-            <p>分享功能开发中...</p>
+          <mdui-card class="share-card">
+            <h2 class="title">分享剪贴板</h2>
+            <p class="subtitle">输入 Markdown 内容，生成分享码</p>
+            
+            <!-- 分享成功状态 -->
+            <div v-if="shareCode" class="success-state">
+              <mdui-icon name="check_circle" style="font-size: 64px; color: var(--mdui-color-primary);"></mdui-icon>
+              <h3 class="success-title">分享成功！</h3>
+              <p class="success-subtitle">您的分享码</p>
+              <div class="share-code-display">{{ shareCode }}</div>
+              <div class="success-actions">
+                <mdui-button variant="filled" @click="copyShareCode">
+                  <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+                  复制分享码
+                </mdui-button>
+                <mdui-button variant="text" @click="clearShareContent">
+                  继续分享
+                </mdui-button>
+              </div>
+            </div>
+            
+            <!-- 编辑状态 -->
+            <template v-else>
+              <div class="editor-container">
+                <div class="editor-section">
+                  <label class="section-label">
+                    <mdui-icon name="edit" style="font-size: 16px;"></mdui-icon>
+                    编辑
+                  </label>
+                  <textarea
+                    v-model="shareContent"
+                    class="markdown-editor"
+                    placeholder="在此输入 Markdown 内容...&#10;支持标题、列表、代码块、链接等格式"
+                    rows="12"
+                  ></textarea>
+                </div>
+                
+                <div class="preview-section">
+                  <label class="section-label">
+                    <mdui-icon name="preview" style="font-size: 16px;"></mdui-icon>
+                    预览
+                  </label>
+                  <div class="markdown-preview" v-html="renderedPreview"></div>
+                </div>
+              </div>
+              
+              <div v-if="shareError" class="error-message">
+                <mdui-icon name="error" style="font-size: 16px;"></mdui-icon>
+                {{ shareError }}
+              </div>
+              
+              <mdui-button 
+                variant="filled"
+                class="share-btn"
+                :loading="isSharing"
+                :disabled="!shareContent.trim()"
+                @click="handleShare"
+              >
+                <mdui-icon slot="icon" name="share"></mdui-icon>
+                生成分享码
+              </mdui-button>
+            </template>
           </mdui-card>
         </div>
       </template>
@@ -315,7 +482,7 @@ function switchTab(tab: string) {
 
 .main-content {
   padding: 16px;
-  max-width: 600px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
@@ -388,16 +555,228 @@ function switchTab(tab: string) {
   opacity: 0.5;
 }
 
-/* Placeholder Card */
-.placeholder-card {
-  padding: 64px 24px;
+/* Share Card */
+.share-card {
+  padding: 24px;
+}
+
+.share-card .title {
   text-align: center;
+}
+
+.share-card .subtitle {
+  text-align: center;
+}
+
+.editor-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .editor-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.editor-section,
+.preview-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mdui-color-on-surface-variant);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.markdown-editor {
+  flex: 1;
+  min-height: 300px;
+  padding: 16px;
+  border: 1px solid var(--mdui-color-outline);
+  border-radius: 8px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  background: var(--mdui-color-surface);
+  color: var(--mdui-color-on-surface);
+}
+
+.markdown-editor:focus {
+  outline: none;
+  border-color: var(--mdui-color-primary);
+}
+
+.markdown-preview {
+  flex: 1;
+  min-height: 300px;
+  padding: 16px;
+  border: 1px solid var(--mdui-color-outline);
+  border-radius: 8px;
+  background: var(--mdui-color-surface);
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.markdown-preview :deep(h1) {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--mdui-color-on-surface);
+}
+
+.markdown-preview :deep(h2) {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 24px 0 12px 0;
+  color: var(--mdui-color-on-surface);
+}
+
+.markdown-preview :deep(h3) {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 20px 0 10px 0;
+  color: var(--mdui-color-on-surface);
+}
+
+.markdown-preview :deep(p) {
+  margin: 0 0 12px 0;
+  color: var(--mdui-color-on-surface);
+}
+
+.markdown-preview :deep(ul),
+.markdown-preview :deep(ol) {
+  margin: 0 0 12px 0;
+  padding-left: 24px;
+}
+
+.markdown-preview :deep(li) {
+  margin: 4px 0;
+}
+
+.markdown-preview :deep(code) {
+  background: var(--mdui-color-surface-container-highest);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.markdown-preview :deep(pre) {
+  background: var(--mdui-color-surface-container-highest);
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.markdown-preview :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.markdown-preview :deep(a) {
+  color: var(--mdui-color-primary);
+  text-decoration: none;
+}
+
+.markdown-preview :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-preview :deep(blockquote) {
+  border-left: 4px solid var(--mdui-color-primary);
+  margin: 12px 0;
+  padding: 8px 16px;
+  background: var(--mdui-color-surface-container-lowest);
   color: var(--mdui-color-on-surface-variant);
 }
 
-.placeholder-card p {
-  margin-top: 16px;
-  font-size: 16px;
+.markdown-preview :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--mdui-color-outline);
+  margin: 16px 0;
+}
+
+.markdown-preview :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.markdown-preview :deep(th),
+.markdown-preview :deep(td) {
+  border: 1px solid var(--mdui-color-outline);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-preview :deep(th) {
+  background: var(--mdui-color-surface-container-highest);
+  font-weight: 600;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mdui-color-error);
+  font-size: 14px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--mdui-color-error-container);
+  border-radius: 8px;
+}
+
+.share-btn {
+  width: 100%;
+  --mdui-button-height: 48px;
+}
+
+/* Success State */
+.success-state {
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.success-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+  color: var(--mdui-color-on-surface);
+}
+
+.success-subtitle {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
+  margin: 0 0 16px 0;
+}
+
+.share-code-display {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  color: var(--mdui-color-primary);
+  margin: 16px 0 24px 0;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.success-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 /* Profile Card */
