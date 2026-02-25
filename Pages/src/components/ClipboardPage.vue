@@ -421,13 +421,16 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
     const diff = targetX - currentX
     
     if (Math.abs(diff) < 0.5) {
+      // 先保存状态，再重置
+      const shouldEnterMultiSelect = item.swipeRight
+      
       item.swipeX = 0
       item.swipeLeft = false
       item.swipeRight = false
       hasVibrated = false
       
       // 如果右滑超过阈值，进入多选模式
-      if (item.swipeRight) {
+      if (shouldEnterMultiSelect) {
         console.log('[TouchEnd] 进入多选模式')
         isMultiSelectMode.value = true
         selectedItems.value.clear()
