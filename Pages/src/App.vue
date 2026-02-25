@@ -15,8 +15,8 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.ol
 // 页面基础 URL（用于生成分享链接）- 使用完整路径
 const BASE_URL = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}`
 
-// 当前页面标签
-const currentTab = ref('fetch')
+// 当前页面标签 - 默认剪贴板
+const currentTab = ref('clipboard')
 
 // 分享相关状态
 const shareContent = ref('')
@@ -102,28 +102,26 @@ const recentClips = ref([
 onMounted(async () => {
   console.log('Page mounted, checking for session...')
   console.log('API_BASE:', API_BASE)
-  
+
   // 检查 URL hash 中是否有标签页参数
   const hash = window.location.hash.replace('#', '')
-  if (hash && ['fetch', 'share', 'profile'].includes(hash)) {
+  if (hash && ['clipboard', 'fetch', 'share', 'profile'].includes(hash)) {
     currentTab.value = hash
-    // 清除 hash
-    window.history.replaceState({}, '', window.location.pathname + window.location.search)
   }
-  
+
   // 检查 URL 参数中是否有 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
   const urlParams = new URLSearchParams(window.location.search)
   const urlSession = urlParams.get('session')
-  
+
   if (urlSession) {
     console.log('Found session in URL params, storing in localStorage...')
     localStorage.setItem('session_id', urlSession)
     // 清除 URL 参数
     urlParams.delete('session')
-    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '')
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '') + window.location.hash
     window.history.replaceState({}, '', newUrl)
   }
-  
+
   // 延迟 1 秒后获取用户信息
   setTimeout(async () => {
     console.log('Fetching user info after delay...')
@@ -137,12 +135,12 @@ async function fetchUserInfo() {
   try {
     // 从 localStorage 获取 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
     const localSession = localStorage.getItem('session_id')
-    
+
     let url = `${API_BASE}/api/me`
     if (localSession) {
       url += `?session=${localSession}`
     }
-    
+
     console.log('Fetching user info from:', url)
     const response = await fetch(url, {
       credentials: 'include',
@@ -151,11 +149,11 @@ async function fetchUserInfo() {
       }
     })
     console.log('Response status:', response.status)
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-    
+
     const data = await response.json()
     console.log('User data received:', data)
     user.value = data
@@ -190,34 +188,34 @@ async function handleFetch() {
     fetchError.value = '请输入5位提取码'
     return
   }
-  
+
   fetchError.value = ''
   isFetching.value = true
   fetchedContent.value = ''
-  
+
   try {
     const response = await fetch(`${API_BASE}/api/clipboard?code=${fetchCode.value}`, {
       headers: {
         'Accept': 'application/json'
       }
     })
-    
+
     if (response.status === 404) {
       fetchError.value = '内容不存在或已过期'
       isFetching.value = false
       return
     }
-    
+
     if (response.status === 410) {
       fetchError.value = '内容已过期'
       isFetching.value = false
       return
     }
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-    
+
     const data = await response.json()
     fetchedContent.value = data.content
     fetchedCode.value = data.code
@@ -242,11 +240,11 @@ async function handleShare() {
     shareError.value = '请输入要分享的内容'
     return
   }
-  
+
   shareError.value = ''
   isSharing.value = true
   shareCode.value = ''
-  
+
   try {
     // 从 localStorage 获取 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
     const sessionId = localStorage.getItem('session_id')
@@ -254,7 +252,7 @@ async function handleShare() {
     if (sessionId) {
       url += `?session=${sessionId}`
     }
-    
+
     const response = await fetch(url, {
       method: 'POST',
       credentials: 'include',
@@ -268,15 +266,15 @@ async function handleShare() {
         expireHours: 24
       })
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
     }
-    
+
     const data = await response.json()
     shareCode.value = data.code
-    
+
     // 清空输入
     shareContent.value = ''
   } catch (error) {
@@ -327,25 +325,25 @@ function clearAll() {
 async function fetchMyShares() {
   mySharesLoading.value = true
   mySharesError.value = ''
-  
+
   try {
     const sessionId = localStorage.getItem('session_id')
     let url = `${API_BASE}/api/my-shares`
     if (sessionId) {
       url += `?session=${sessionId}`
     }
-    
+
     const response = await fetch(url, {
       credentials: 'include',
       headers: {
         'Accept': 'application/json'
       }
     })
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-    
+
     const data = await response.json()
     myShares.value = data.shares || []
   } catch (error) {
@@ -377,6 +375,8 @@ function formatDate(timestamp: number): string {
 
 function switchTab(tab: string) {
   currentTab.value = tab
+  // 更新 URL hash
+  window.history.replaceState({}, '', `#${tab}`)
 }
 </script>
 
@@ -391,7 +391,7 @@ function switchTab(tab: string) {
 
     <!-- 主内容区 -->
     <main class="main-content">
-      
+
       <!-- 剪贴板页面 -->
       <template v-if="currentTab === 'clipboard'">
         <div class="section">
@@ -404,7 +404,7 @@ function switchTab(tab: string) {
           </mdui-card>
         </div>
       </template>
-      
+
       <!-- 获取页面 -->
       <template v-if="currentTab === 'fetch'">
         <!-- 显示获取到的内容 -->
@@ -423,8 +423,8 @@ function switchTab(tab: string) {
           <mdui-card class="fetch-card">
             <h2 class="title">获取分享</h2>
             <p class="subtitle">输入5位提取码，立即获取分享的内容</p>
-            
-            <mdui-text-field 
+
+            <mdui-text-field
               v-model="fetchCode"
               label="5位提取码"
               maxlength="5"
@@ -432,8 +432,8 @@ function switchTab(tab: string) {
               :error="!!fetchError"
               :error-text="fetchError"
             ></mdui-text-field>
-            
-            <mdui-button 
+
+            <mdui-button
               variant="filled"
               class="fetch-btn"
               :loading="isFetching"
@@ -450,14 +450,14 @@ function switchTab(tab: string) {
           <mdui-card class="recent-card">
             <div class="recent-header">
               <span class="recent-title">最近剪贴板</span>
-              <mdui-button 
+              <mdui-button
                 variant="text"
                 @click="clearAll"
               >
                 清空全部
               </mdui-button>
             </div>
-            
+
             <mdui-list class="clips-list">
               <mdui-list-item
                 v-for="clip in recentClips"
@@ -470,7 +470,7 @@ function switchTab(tab: string) {
               >
               </mdui-list-item>
             </mdui-list>
-            
+
             <div v-if="recentClips.length === 0" class="empty-state">
               <mdui-icon name="inbox"></mdui-icon>
               <p>暂无最近剪贴板</p>
@@ -488,7 +488,7 @@ function switchTab(tab: string) {
               <mdui-icon name="lock" style="font-size: 64px; color: var(--mdui-color-on-surface-variant);"></mdui-icon>
               <h3 class="login-required-title">需要登录</h3>
               <p class="login-required-subtitle">请先使用 GitHub 登录后再分享内容</p>
-              <mdui-button 
+              <mdui-button
                 variant="filled"
                 class="github-login-btn"
                 @click="loginWithGitHub"
@@ -505,7 +505,7 @@ function switchTab(tab: string) {
           <mdui-card v-else class="share-card">
             <h2 class="title">分享剪贴板</h2>
             <p class="subtitle">输入 Markdown 内容，生成分享码</p>
-            
+
             <!-- 分享成功状态 -->
             <div v-if="shareCode" class="success-state">
               <mdui-icon name="check_circle" style="font-size: 64px; color: var(--mdui-color-primary);"></mdui-icon>
@@ -522,7 +522,7 @@ function switchTab(tab: string) {
                 </mdui-button>
               </div>
             </div>
-            
+
             <!-- 编辑状态 -->
             <template v-else>
               <div class="editor-container">
@@ -538,7 +538,7 @@ function switchTab(tab: string) {
                     rows="12"
                   ></textarea>
                 </div>
-                
+
                 <div class="preview-section">
                   <label class="section-label">
                     <mdui-icon name="preview" style="font-size: 16px;"></mdui-icon>
@@ -547,13 +547,13 @@ function switchTab(tab: string) {
                   <div class="markdown-preview" v-html="renderedPreview"></div>
                 </div>
               </div>
-              
+
               <div v-if="shareError" class="error-message">
                 <mdui-icon name="error" style="font-size: 16px;"></mdui-icon>
                 {{ shareError }}
               </div>
-              
-              <mdui-button 
+
+              <mdui-button
                 variant="filled"
                 class="share-btn"
                 :loading="isSharing"
@@ -588,8 +588,8 @@ function switchTab(tab: string) {
               <h2 class="profile-title">未登录</h2>
               <p class="profile-subtitle">登录后可同步剪贴板历史</p>
             </div>
-            
-            <mdui-button 
+
+            <mdui-button
               variant="filled"
               class="github-login-btn"
               @click="loginWithGitHub"
@@ -604,22 +604,22 @@ function switchTab(tab: string) {
           <!-- 已登录状态 -->
           <mdui-card v-else class="profile-card">
             <div class="profile-header">
-              <img 
-                :src="user.user?.avatar" 
+              <img
+                :src="user.user?.avatar"
                 :alt="user.user?.login"
                 class="avatar-image"
               >
               <h2 class="profile-title">{{ user.user?.name || user.user?.login }}</h2>
               <p class="profile-subtitle">@{{ user.user?.login }}</p>
             </div>
-            
+
             <mdui-list>
               <mdui-list-item icon="history" headline="我的分享" @click="showMyShares = true; fetchMyShares()"></mdui-list-item>
               <mdui-list-item icon="settings" headline="设置"></mdui-list-item>
               <mdui-list-item icon="help" headline="帮助"></mdui-list-item>
             </mdui-list>
-            
-            <mdui-button 
+
+            <mdui-button
               variant="outlined"
               class="logout-btn"
               @click="logout"
@@ -641,24 +641,24 @@ function switchTab(tab: string) {
             <mdui-top-app-bar-title>我的分享</mdui-top-app-bar-title>
           </mdui-top-app-bar>
         </div>
-        
+
         <div class="overlay-content">
           <div v-if="mySharesLoading" class="loading-state">
             <div class="spinner"></div>
             <p>正在加载...</p>
           </div>
-          
+
           <div v-else-if="mySharesError" class="error-state">
             <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
             <p>{{ mySharesError }}</p>
             <mdui-button variant="filled" @click="fetchMyShares">重试</mdui-button>
           </div>
-          
+
           <div v-else-if="myShares.length === 0" class="empty-state">
             <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
             <p>暂无分享内容</p>
           </div>
-          
+
           <mdui-list v-else class="shares-list">
             <mdui-list-item
               v-for="share in myShares"
@@ -668,13 +668,13 @@ function switchTab(tab: string) {
               icon="description"
             >
               <div slot="end" style="display: flex; gap: 8px;">
-                <mdui-button-icon 
-                  icon="content_copy" 
+                <mdui-button-icon
+                  icon="content_copy"
                   @click="copyShareLink(share.code)"
                   title="复制链接"
                 ></mdui-button-icon>
-                <mdui-button-icon 
-                  icon="open_in_new" 
+                <mdui-button-icon
+                  icon="open_in_new"
                   @click="openShare(share.code)"
                   title="查看"
                 ></mdui-button-icon>
@@ -686,7 +686,7 @@ function switchTab(tab: string) {
     </main>
 
     <!-- 底部导航栏 -->
-    <mdui-navigation-bar 
+    <mdui-navigation-bar
       class="bottom-nav"
       :value="currentTab"
       @change="(e: any) => switchTab(e.target.value)"
@@ -694,15 +694,15 @@ function switchTab(tab: string) {
       <mdui-navigation-bar-item icon="content_paste" value="clipboard">
         剪贴板
       </mdui-navigation-bar-item>
-      
+
       <mdui-navigation-bar-item icon="download" value="fetch">
         获取
       </mdui-navigation-bar-item>
-      
+
       <mdui-navigation-bar-item icon="share" value="share">
         分享
       </mdui-navigation-bar-item>
-      
+
       <mdui-navigation-bar-item icon="person" value="profile">
         我的
       </mdui-navigation-bar-item>
