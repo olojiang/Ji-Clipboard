@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+// 当前页面标签
+const currentTab = ref('fetch')
+
 // 写死的数据
 const code = ref('')
 const recentClips = ref([
@@ -8,7 +11,7 @@ const recentClips = ref([
     id: 1,
     type: 'text',
     title: 'Project requirements.txt',
-    subtitle: 'Fetched 2 hours ago • Code: 48291',
+    subtitle: '2小时前获取 • 提取码: 48291',
     icon: 'description',
     expired: false
   },
@@ -16,7 +19,7 @@ const recentClips = ref([
     id: 2,
     type: 'link',
     title: 'https://github.com/desi...',
-    subtitle: 'Fetched yesterday • Code: 11094',
+    subtitle: '昨天获取 • 提取码: 11094',
     icon: 'link',
     expired: false
   },
@@ -24,22 +27,26 @@ const recentClips = ref([
     id: 3,
     type: 'image',
     title: 'screenshot_2023.png',
-    subtitle: 'Expired 2 days ago',
+    subtitle: '2天前过期',
     icon: 'image',
     expired: true
   }
 ])
 
 function handleFetch() {
-  alert(`Fetching code: ${code.value || 'empty'}`)
+  alert(`正在获取: ${code.value || '空'}`)
 }
 
 function handleShare() {
-  alert('Generate share code!')
+  alert('生成分享码!')
 }
 
 function clearAll() {
   recentClips.value = []
+}
+
+function switchTab(tab: string) {
+  currentTab.value = tab
 }
 </script>
 
@@ -48,102 +55,107 @@ function clearAll() {
     <!-- 顶部导航栏 -->
     <mdui-top-app-bar class="app-bar">
       <mdui-button-icon icon="cloud"></mdui-button-icon>
-      <mdui-top-app-bar-title>Cloud Clipboard</mdui-top-app-bar-title>
+      <mdui-top-app-bar-title>云剪贴板</mdui-top-app-bar-title>
       <mdui-button-icon icon="account_circle"></mdui-button-icon>
     </mdui-top-app-bar>
 
     <!-- 主内容区 -->
     <main class="main-content">
       
-      <!-- Fetch 区域 -->
-      <div class="section">
-        <mdui-card class="fetch-card">
-          <h2 class="title">Fetch your clipboard</h2>
-          <p class="subtitle">Enter the 5-digit code to extract your shared data instantly.</p>
-          
-          <mdui-text-field 
-            v-model="code"
-            label="5-digit code"
-            maxlength="5"
-            class="code-input"
-          ></mdui-text-field>
-          
-          <mdui-button 
-            variant="filled"
-            class="fetch-btn"
-            @click="handleFetch"
-          >
-            <mdui-icon slot="icon" name="arrow_forward"></mdui-icon>
-            Fetch
-          </mdui-button>
-        </mdui-card>
-      </div>
-
-      <!-- Share 区域 -->
-      <div class="section">
-        <mdui-card 
-          class="share-card"
-          clickable
-          @click="handleShare"
-        >
-          <div class="share-content">
-            <div class="share-avatar">
-              <mdui-icon name="content_copy"></mdui-icon>
-            </div>
-            <h3 class="share-title">Share My Clipboard</h3>
-            <p class="share-desc">Generate a unique code for your text or files</p>
-          </div>
-        </mdui-card>
-      </div>
-
-      <!-- Recent Clips 区域 -->
-      <div class="section">
-        <mdui-card class="recent-card">
-          <div class="recent-header">
-            <span class="recent-title">RECENT CLIPS</span>
+      <!-- 获取页面 -->
+      <template v-if="currentTab === 'fetch'">
+        <!-- 提取区域 -->
+        <div class="section">
+          <mdui-card class="fetch-card">
+            <h2 class="title">提取剪贴板</h2>
+            <p class="subtitle">输入5位提取码，立即获取分享的内容</p>
+            
+            <mdui-text-field 
+              v-model="code"
+              label="5位提取码"
+              maxlength="5"
+              class="code-input"
+            ></mdui-text-field>
+            
             <mdui-button 
-              variant="text"
-              @click="clearAll"
+              variant="filled"
+              class="fetch-btn"
+              @click="handleFetch"
             >
-              Clear all
+              <mdui-icon slot="icon" name="arrow_forward"></mdui-icon>
+              提取
             </mdui-button>
-          </div>
-          
-          <mdui-list class="clips-list">
-            <mdui-list-item
-              v-for="clip in recentClips"
-              :key="clip.id"
-              :headline="clip.title"
-              :description="clip.subtitle"
-              :disabled="clip.expired"
-              :icon="clip.icon"
-              end-icon="more_vert"
-            >
-            </mdui-list-item>
-          </mdui-list>
-          
-          <div v-if="recentClips.length === 0" class="empty-state">
-            <mdui-icon name="inbox"></mdui-icon>
-            <p>No recent clips</p>
-          </div>
-        </mdui-card>
-      </div>
+          </mdui-card>
+        </div>
+
+        <!-- 最近剪贴板区域 -->
+        <div class="section">
+          <mdui-card class="recent-card">
+            <div class="recent-header">
+              <span class="recent-title">最近剪贴板</span>
+              <mdui-button 
+                variant="text"
+                @click="clearAll"
+              >
+                清空全部
+              </mdui-button>
+            </div>
+            
+            <mdui-list class="clips-list">
+              <mdui-list-item
+                v-for="clip in recentClips"
+                :key="clip.id"
+                :headline="clip.title"
+                :description="clip.subtitle"
+                :disabled="clip.expired"
+                :icon="clip.icon"
+                end-icon="more_vert"
+              >
+              </mdui-list-item>
+            </mdui-list>
+            
+            <div v-if="recentClips.length === 0" class="empty-state">
+              <mdui-icon name="inbox"></mdui-icon>
+              <p>暂无最近剪贴板</p>
+            </div>
+          </mdui-card>
+        </div>
+      </template>
+
+      <!-- 分享页面 -->
+      <template v-if="currentTab === 'share'">
+        <div class="section">
+          <mdui-card class="placeholder-card">
+            <mdui-icon name="share" style="font-size: 48px; opacity: 0.5;"></mdui-icon>
+            <p>分享功能开发中...</p>
+          </mdui-card>
+        </div>
+      </template>
+
+      <!-- 我的页面 -->
+      <template v-if="currentTab === 'profile'">
+        <div class="section">
+          <mdui-card class="placeholder-card">
+            <mdui-icon name="person" style="font-size: 48px; opacity: 0.5;"></mdui-icon>
+            <p>个人中心开发中...</p>
+          </mdui-card>
+        </div>
+      </template>
     </main>
 
     <!-- 底部导航栏 -->
     <mdui-navigation-bar 
       class="bottom-nav"
-      value="fetch"
+      :value="currentTab"
+      @change="(e: any) => switchTab(e.target.value)"
     >
-      <mdui-navigation-bar-item icon="home" value="fetch">
+      <mdui-navigation-bar-item icon="download" value="fetch">
         获取
       </mdui-navigation-bar-item>
       
-      <mdui-fab 
-        class="center-fab"
-        icon="add"
-        @click="handleShare"
-      ></mdui-fab>
+      <mdui-navigation-bar-item icon="share" value="share">
+        分享
+      </mdui-navigation-bar-item>
       
       <mdui-navigation-bar-item icon="person" value="profile">
         我的
@@ -204,48 +216,6 @@ function clearAll() {
   --mdui-button-height: 48px;
 }
 
-/* Share Card */
-.share-card {
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.share-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--mdui-elevation-level3);
-}
-
-.share-content {
-  padding: 32px 24px;
-  text-align: center;
-}
-
-.share-avatar {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
-  font-size: 28px;
-  background: var(--mdui-color-primary-container);
-  color: var(--mdui-color-on-primary-container);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.share-title {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--mdui-color-on-surface);
-}
-
-.share-desc {
-  margin: 0;
-  font-size: 14px;
-  color: var(--mdui-color-on-surface-variant);
-}
-
 /* Recent Card */
 .recent-card {
   padding: 16px;
@@ -282,19 +252,23 @@ function clearAll() {
   opacity: 0.5;
 }
 
+/* Placeholder Card */
+.placeholder-card {
+  padding: 64px 24px;
+  text-align: center;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+.placeholder-card p {
+  margin-top: 16px;
+  font-size: 16px;
+}
+
 /* Bottom Navigation */
 .bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-}
-
-.center-fab {
-  position: absolute;
-  top: -28px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
 }
 </style>
