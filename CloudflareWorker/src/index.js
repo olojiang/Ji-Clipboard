@@ -153,7 +153,7 @@ async function handleGitHubCallback(request, env, corsHeaders) {
     await env.AUTH_KV.delete(`session:${existingSessionId}`);
   }
   
-  // 存储用户会话到 KV（7天过期）
+  // 存储用户会话到 KV（30天过期）
   const sessionData = {
     userId: githubUser.id,
     login: githubUser.login,
@@ -164,12 +164,12 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   };
 
   await env.AUTH_KV.put(`session:${sessionId}`, JSON.stringify(sessionData), {
-    expirationTtl: 7 * 24 * 60 * 60, // 7天
+    expirationTtl: 30 * 24 * 60 * 60, // 30天
   });
 
   // 存储用户ID到会话的映射
   await env.AUTH_KV.put(`user_session:${githubUser.id}`, sessionId, {
-    expirationTtl: 7 * 24 * 60 * 60,
+    expirationTtl: 30 * 24 * 60 * 60, // 30天
   });
 
   // 设置 Cookie 并重定向回前端
@@ -183,7 +183,7 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   redirectUrl.searchParams.set('session', sessionId);
   
   // 同时设置 cookie（用于支持第三方 cookie 的浏览器）
-  const newCookie = `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Max-Age=${7 * 24 * 60 * 60}; Path=/; Domain=olojiang.workers.dev`;
+  const newCookie = `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Max-Age=${30 * 24 * 60 * 60}; Path=/; Domain=olojiang.workers.dev`;
   
   return new Response(null, {
     status: 302,
