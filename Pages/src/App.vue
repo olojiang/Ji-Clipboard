@@ -66,6 +66,8 @@ const showAddClipboardDialog = ref(false)
 const myClipboards = ref<Array<{
   content: string
   createdAt: number
+  swipeLeft?: boolean
+  swipeRight?: boolean
 }>>([])
 const clipboardsLoading = ref(false)
 const clipboardsError = ref('')
@@ -472,32 +474,97 @@ function copyClipboard(content: string) {
   })
 }
 
+// 滑动相关状态
+const swipeStartX = ref(0)
+const swipeCurrentX = ref(0)
+const SWIPE_THRESHOLD = 80 // 滑动阈值
+
 // 长按开始（触摸）
-function handleTouchStart(content: string) {
+function handleTouchStart(event: TouchEvent, item: any) {
+  swipeStartX.value = event.touches[0].clientX
+  swipeCurrentX.value = swipeStartX.value
+  
   longPressTimer.value = window.setTimeout(() => {
-    copyClipboard(content)
+    copyClipboard(item.content)
     longPressTimer.value = null
   }, LONG_PRESS_DURATION)
 }
 
-// 长按结束（触摸）
-function handleTouchEnd() {
+// 滑动中（触摸）
+function handleTouchMove(event: TouchEvent, item: any) {
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
+  
+  swipeCurrentX.value = event.touches[0].clientX
+  const diff = swipeCurrentX.value - swipeStartX.value
+  
+  // 重置所有滑动状态
+  myClipboards.value.forEach(i => {
+    i.swipeLeft = false
+    i.swipeRight = false
+  })
+  
+  // 设置当前项的滑动状态
+  if (diff < -SWIPE_THRESHOLD) {
+    item.swipeLeft = true
+  } else if (diff > SWIPE_THRESHOLD) {
+    item.swipeRight = true
+  }
+}
+
+// 滑动结束（触摸）
+function handleTouchEnd(event: TouchEvent, item: any) {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  
+  // 可以在这里添加滑动后的操作
+  // 目前只是 UI 展示，不执行具体操作
 }
 
 // 长按开始（鼠标）
-function handleMouseDown(content: string) {
+function handleMouseDown(event: MouseEvent, item: any) {
+  swipeStartX.value = event.clientX
+  swipeCurrentX.value = swipeStartX.value
+  
   longPressTimer.value = window.setTimeout(() => {
-    copyClipboard(content)
+    copyClipboard(item.content)
     longPressTimer.value = null
   }, LONG_PRESS_DURATION)
 }
 
-// 长按结束（鼠标）
-function handleMouseUp() {
+// 滑动中（鼠标）
+function handleMouseMove(event: MouseEvent, item: any) {
+  if (!longPressTimer.value) return
+  
+  swipeCurrentX.value = event.clientX
+  const diff = swipeCurrentX.value - swipeStartX.value
+  
+  // 如果移动距离超过阈值，取消长按
+  if (Math.abs(diff) > 10) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  
+  // 重置所有滑动状态
+  myClipboards.value.forEach(i => {
+    i.swipeLeft = false
+    i.swipeRight = false
+  })
+  
+  // 设置当前项的滑动状态
+  if (diff < -SWIPE_THRESHOLD) {
+    item.swipeLeft = true
+  } else if (diff > SWIPE_THRESHOLD) {
+    item.swipeRight = true
+  }
+}
+
+// 滑动结束（鼠标）
+function handleMouseUp(event: MouseEvent, item: any) {
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
@@ -689,31 +756,49 @@ function switchTab(tab: string) {
                 <div
                   v-for="(item, index) in myClipboards"
                   :key="index"
-                  class="clipboard-item"
-                  @touchstart="handleTouchStart(item.content)"
-                  @touchend="handleTouchEnd"
-                  @mousedown="handleMouseDown(item.content)"
-                  @mouseup="handleMouseUp"
-                  @mouseleave="handleMouseUp"
+                  class="swipe-item"
+                  :class="{ 'swiping-left': item.swipeLeft, 'swiping-right': item.swipeRight }"
+                  @touchstart="handleTouchStart($event, item)"
+                  @touchmove="handleTouchMove($event, item)"
+                  @touchend="handleTouchEnd($event, item)"
+                  @mousedown="handleMouseDown($event, item)"
+                  @mousemove="handleMouseMove($event, item)"
+                  @mouseup="handleMouseUp($event, item)"
+                  @mouseleave="handleMouseUp($event, item)"
                 >
-                  <mdui-list-item
-                    :headline="item.content.substring(0, 50) + (item.content.length > 50 ? '...' : '')"
-                    :description="formatDate(item.createdAt)"
-                    icon="content_paste"
-                  >
-                    <div slot="end" style="display: flex; gap: 8px;">
-                      <mdui-button-icon
-                        icon="content_copy"
-                        @click="copyClipboard(item.content)"
-                        title="复制"
-                      ></mdui-button-icon>
-                      <mdui-button-icon
-                        icon="delete"
-                        @click="deleteClipboard(index)"
-                        title="删除"
-                      ></mdui-button-icon>
-                    </div>
-                  </mdui-list-item>
+                  <!-- 左滑背景（分享） -->
+                  <div class="swipe-bg swipe-bg-left">
+                    <mdui-icon name="share" style="font-size: 24px; color: white;"></mdui-icon>
+                    <span>分享</span>
+                  </div>
+                  
+                  <!-- 右滑背景（多选） -->
+                  <div class="swipe-bg swipe-bg-right">
+                    <mdui-icon name="check_box" style="font-size: 24px; color: white;"></mdui-icon>
+                    <span>多选</span>
+                  </div>
+                  
+                  <!-- 内容层 -->
+                  <div class="swipe-content">
+                    <mdui-list-item
+                      :headline="item.content.substring(0, 50) + (item.content.length > 50 ? '...' : '')"
+                      :description="formatDate(item.createdAt)"
+                      icon="content_paste"
+                    >
+                      <div slot="end" style="display: flex; gap: 8px;">
+                        <mdui-button-icon
+                          icon="content_copy"
+                          @click.stop="copyClipboard(item.content)"
+                          title="复制"
+                        ></mdui-button-icon>
+                        <mdui-button-icon
+                          icon="delete"
+                          @click.stop="deleteClipboard(index)"
+                          title="删除"
+                        ></mdui-button-icon>
+                      </div>
+                    </mdui-list-item>
+                  </div>
                 </div>
               </mdui-list>
             </mdui-card>
@@ -1730,15 +1815,69 @@ function switchTab(tab: string) {
   padding: 0;
 }
 
-.clipboard-item {
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
+/* Swipe Item */
+.swipe-item {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border-radius: 8px;
 }
 
-.clipboard-item:active {
-  background: var(--mdui-color-surface-container-highest);
+.swipe-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  transition: transform 0.3s ease;
+}
+
+.swipe-bg-left {
+  left: 0;
+  background: var(--mdui-color-primary);
+  color: white;
+  justify-content: flex-end;
+  transform: translateX(-100%);
+}
+
+.swipe-bg-right {
+  right: 0;
+  background: var(--mdui-color-tertiary);
+  color: white;
+  justify-content: flex-start;
+  transform: translateX(100%);
+}
+
+.swipe-bg span {
+  margin-left: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.swipe-content {
+  position: relative;
+  background: var(--mdui-color-surface);
+  transition: transform 0.3s ease;
+}
+
+/* 左滑状态 */
+.swiping-left .swipe-bg-left {
+  transform: translateX(-50%);
+}
+
+.swiping-left .swipe-content {
+  transform: translateX(-50%);
+}
+
+/* 右滑状态 */
+.swiping-right .swipe-bg-right {
+  transform: translateX(50%);
+}
+
+.swiping-right .swipe-content {
+  transform: translateX(50%);
 }
 
 /* Toast */
