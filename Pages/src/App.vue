@@ -50,9 +50,14 @@ const recentClips = ref([
 
 // 页面加载时获取用户信息
 onMounted(async () => {
-  console.log('Page mounted, fetching user info...')
+  console.log('Page mounted, waiting 1 second before fetching user info...')
   console.log('API_BASE:', API_BASE)
-  await fetchUserInfo()
+  
+  // 延迟 1 秒后获取用户信息
+  setTimeout(async () => {
+    console.log('Fetching user info after delay...')
+    await fetchUserInfo()
+  }, 1000)
 })
 
 // 获取用户信息
