@@ -291,15 +291,25 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
 
 // 触摸移动
 function handleTouchMove(event: TouchEvent, item: any) {
+  console.log('[TouchMove] 触发', 'isMultiSelectMode:', isMultiSelectMode.value, 'isDragging:', isDragging)
+  
   // 如果已经在多选模式，不处理滑动
-  if (isMultiSelectMode.value) return
+  if (isMultiSelectMode.value) {
+    console.log('[TouchMove] 多选模式，跳过')
+    return
+  }
   
   // 如果长按已触发，不处理滑动
-  if (isDragging) return
+  if (isDragging) {
+    console.log('[TouchMove] 已拖动，跳过')
+    return
+  }
   
   const touch = event.touches[0]
   const currentX = touch.clientX
   const currentY = touch.clientY
+  
+  console.log('[TouchMove] 当前位置:', currentX, currentY)
   
   // 计算移动距离
   const totalDeltaX = Math.abs(currentX - swipeStartX.value)
@@ -318,6 +328,7 @@ function handleTouchMove(event: TouchEvent, item: any) {
   
   // 一旦开始水平移动，取消长按
   if (longPressTimer.value && totalDeltaX > TAP_THRESHOLD) {
+    console.log('[TouchMove] 开始水平移动，取消长按')
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
     isDragging = true
@@ -336,6 +347,8 @@ function handleTouchMove(event: TouchEvent, item: any) {
   
   const diffX = currentX - swipeStartX.value
   
+  console.log('[TouchMove] diffX:', diffX)
+  
   // 使用更柔和的阻力效果
   const maxSwipe = 120
   let swipeX = diffX
@@ -348,6 +361,8 @@ function handleTouchMove(event: TouchEvent, item: any) {
   }
   
   item.swipeX = swipeX
+  
+  console.log('[TouchMove] 设置 swipeX:', swipeX)
   
   // 实时更新滑动方向指示
   if (diffX < -SWIPE_THRESHOLD) {
@@ -659,6 +674,8 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   margin-bottom: 8px;
   border-radius: 8px;
   touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .swipe-item.is-selected .swipe-content {
