@@ -302,16 +302,11 @@ function handleTouchMove(event: TouchEvent, item: any) {
   const currentY = touch.clientY
   
   // 计算移动距离
-  const deltaX = Math.abs(currentX - swipeStartX.value)
-  const deltaY = Math.abs(currentY - swipeStartY.value)
-  
-  // 如果移动距离小于阈值，认为是点击/长按，不处理滑动
-  if (deltaX < TAP_THRESHOLD && deltaY < TAP_THRESHOLD) {
-    return
-  }
+  const totalDeltaX = Math.abs(currentX - swipeStartX.value)
+  const totalDeltaY = Math.abs(currentY - swipeStartY.value)
   
   // 如果垂直移动明显大于水平移动（2倍以上），认为是滚动
-  if (deltaY > deltaX * 2 && deltaY > TAP_THRESHOLD) {
+  if (totalDeltaY > totalDeltaX * 2 && totalDeltaY > TAP_THRESHOLD) {
     console.log('[TouchMove] 垂直滚动，取消长按和滑动')
     if (longPressTimer.value) {
       clearTimeout(longPressTimer.value)
@@ -321,13 +316,12 @@ function handleTouchMove(event: TouchEvent, item: any) {
     return
   }
   
-  // 开始滑动了，取消长按
-  if (longPressTimer.value) {
+  // 一旦开始水平移动，取消长按
+  if (longPressTimer.value && totalDeltaX > TAP_THRESHOLD) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
+    isDragging = true
   }
-  
-  isDragging = true
   
   const currentTime = Date.now()
   const moveDeltaX = currentX - lastX.value
