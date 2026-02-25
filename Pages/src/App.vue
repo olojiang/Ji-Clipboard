@@ -47,13 +47,13 @@ function clearAll() {
   <div class="app">
     <!-- 顶部导航栏 -->
     <mdui-top-app-bar class="app-bar">
-      <mdui-button-icon icon="cloud" slot="navigation"></mdui-button-icon>
+      <mdui-button-icon icon="cloud"></mdui-button-icon>
       <mdui-top-app-bar-title>Cloud Clipboard</mdui-top-app-bar-title>
-      <mdui-button-icon icon="account_circle" slot="action"></mdui-button-icon>
+      <mdui-button-icon icon="account_circle"></mdui-button-icon>
     </mdui-top-app-bar>
 
     <!-- 主内容区 -->
-    <mdui-layout-main class="main-content">
+    <main class="main-content">
       
       <!-- Fetch 区域 -->
       <div class="section">
@@ -87,9 +87,9 @@ function clearAll() {
           @click="handleShare"
         >
           <div class="share-content">
-            <mdui-avatar class="share-avatar">
+            <div class="share-avatar">
               <mdui-icon name="content_copy"></mdui-icon>
-            </mdui-avatar>
+            </div>
             <h3 class="share-title">Share My Clipboard</h3>
             <p class="share-desc">Generate a unique code for your text or files</p>
           </div>
@@ -116,15 +116,9 @@ function clearAll() {
               :headline="clip.title"
               :description="clip.subtitle"
               :disabled="clip.expired"
+              :icon="clip.icon"
+              end-icon="more_vert"
             >
-              <mdui-icon 
-                slot="icon"
-                :name="clip.icon"
-              ></mdui-icon>
-              <mdui-icon 
-                slot="end-icon"
-                name="more_vert"
-              ></mdui-icon>
             </mdui-list-item>
           </mdui-list>
           
@@ -134,7 +128,7 @@ function clearAll() {
           </div>
         </mdui-card>
       </div>
-    </mdui-layout-main>
+    </main>
 
     <!-- 底部导航栏 -->
     <mdui-navigation-bar 
@@ -233,6 +227,10 @@ function clearAll() {
   font-size: 28px;
   background: var(--mdui-color-primary-container);
   color: var(--mdui-color-on-primary-container);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .share-title {
