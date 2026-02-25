@@ -224,7 +224,14 @@ async function handleShare() {
   shareCode.value = ''
   
   try {
-    const response = await fetch(`${API_BASE}/api/clipboard`, {
+    // 从 localStorage 获取 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+    
+    const response = await fetch(url, {
       method: 'POST',
       credentials: 'include',
       headers: {
