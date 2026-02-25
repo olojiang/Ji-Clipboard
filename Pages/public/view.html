@@ -495,7 +495,8 @@
       showLoading();
       
       try {
-        const response = await fetch(`${API_BASE}/api/clipboard/${code}`, {
+        // 使用 query parameter 而不是 path parameter
+        const response = await fetch(`${API_BASE}/api/clipboard?code=${code}`, {
           headers: {
             'Accept': 'application/json'
           }

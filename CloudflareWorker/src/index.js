@@ -46,8 +46,8 @@ export default {
         return handleSaveClipboard(request, env, corsHeaders);
       }
 
-      // 获取剪贴板数据
-      if (path.startsWith('/api/clipboard/') && path.length > 15) {
+      // 获取剪贴板数据（支持 path 和 query 两种方式）
+      if (path === '/api/clipboard' || path.startsWith('/api/clipboard/')) {
         return handleGetClipboard(request, env, corsHeaders);
       }
 
@@ -310,7 +310,14 @@ async function handleSaveClipboard(request, env, corsHeaders) {
 // 获取剪贴板数据
 async function handleGetClipboard(request, env, corsHeaders) {
   const url = new URL(request.url);
-  const code = url.pathname.split('/').pop();
+  
+  // 支持两种方式：path parameter 和 query parameter
+  let code = url.searchParams.get('code');
+  
+  // 如果没有 query parameter，尝试从 path 获取
+  if (!code) {
+    code = url.pathname.split('/').pop();
+  }
 
   if (!code || code.length !== 5) {
     return jsonResponse({ error: 'Invalid code' }, 400, corsHeaders);
