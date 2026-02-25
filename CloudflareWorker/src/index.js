@@ -47,7 +47,7 @@ export default {
       }
 
       // 获取剪贴板数据
-      if (path === '/api/clipboard/:code') {
+      if (path.startsWith('/api/clipboard/') && path.length > 15) {
         return handleGetClipboard(request, env, corsHeaders);
       }
 
