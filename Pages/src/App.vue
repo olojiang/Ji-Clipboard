@@ -482,8 +482,16 @@ function switchTab(tab: string) {
       <!-- 分享页面 -->
       <template v-if="currentTab === 'share'">
         <div class="section">
+          <!-- 加载中状态 -->
+          <mdui-card v-if="authLoading" class="share-card">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>正在检查登录状态...</p>
+            </div>
+          </mdui-card>
+
           <!-- 未登录状态 -->
-          <mdui-card v-if="!user.loggedIn" class="share-card">
+          <mdui-card v-else-if="!user.loggedIn" class="share-card">
             <div class="login-required-state">
               <mdui-icon name="lock" style="font-size: 64px; color: var(--mdui-color-on-surface-variant);"></mdui-icon>
               <h3 class="login-required-title">需要登录</h3>
