@@ -153,9 +153,16 @@ function hideToast() {
 
     <!-- 主内容区 -->
     <main class="main-content">
+      <!-- 我的分享页面 -->
+      <MySharesPage
+        v-if="showMySharesPage"
+        :base-url="BASE_URL"
+        @close="closeMySharesPage"
+      />
+
       <!-- 剪贴板页面 -->
       <ClipboardPage
-        v-if="currentTab === 'clipboard'"
+        v-else-if="currentTab === 'clipboard'"
         :user="user"
         :auth-loading="authLoading"
         @show-toast="showToastMessage"
@@ -163,13 +170,13 @@ function hideToast() {
 
       <!-- 获取页面 -->
       <FetchPage
-        v-if="currentTab === 'fetch'"
+        v-else-if="currentTab === 'fetch'"
         @show-toast="showToastMessage"
       />
 
       <!-- 分享页面 -->
       <SharePage
-        v-if="currentTab === 'share'"
+        v-else-if="currentTab === 'share'"
         :user="user"
         :auth-loading="authLoading"
         :base-url="BASE_URL"
@@ -178,19 +185,12 @@ function hideToast() {
 
       <!-- 个人中心页面 -->
       <ProfilePage
-        v-if="currentTab === 'profile' && !showMySharesPage"
+        v-else-if="currentTab === 'profile'"
         :user="user"
         :auth-loading="authLoading"
         @login="loginWithGitHub"
         @logout="logout"
         @show-my-shares="showMySharesPageFn"
-      />
-
-      <!-- 我的分享页面 -->
-      <MySharesPage
-        v-if="showMySharesPage"
-        :base-url="BASE_URL"
-        @close="closeMySharesPage"
       />
     </main>
 
