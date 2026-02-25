@@ -88,6 +88,14 @@ onMounted(async () => {
   console.log('Page mounted, checking for session...')
   console.log('API_BASE:', API_BASE)
   
+  // 检查 URL hash 中是否有标签页参数
+  const hash = window.location.hash.replace('#', '')
+  if (hash && ['fetch', 'share', 'profile'].includes(hash)) {
+    currentTab.value = hash
+    // 清除 hash
+    window.history.replaceState({}, '', window.location.pathname + window.location.search)
+  }
+  
   // 检查 URL 参数中是否有 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
   const urlParams = new URLSearchParams(window.location.search)
   const urlSession = urlParams.get('session')

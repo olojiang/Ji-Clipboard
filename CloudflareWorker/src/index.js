@@ -155,6 +155,9 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   // 使用 SameSite=None 因为 Worker 和前端是不同域名
   const redirectUrl = new URL(env.FRONTEND_URL || '/');
   
+  // 添加 hash 跳转到"我的"标签页
+  redirectUrl.hash = 'profile';
+  
   // 将 session ID 添加到 URL 参数（用于 iOS Safari 等限制第三方 cookie 的浏览器）
   redirectUrl.searchParams.set('session', sessionId);
   
