@@ -50,8 +50,21 @@ const recentClips = ref([
 
 // 页面加载时获取用户信息
 onMounted(async () => {
-  console.log('Page mounted, waiting 1 second before fetching user info...')
+  console.log('Page mounted, checking for session...')
   console.log('API_BASE:', API_BASE)
+  
+  // 检查 URL 参数中是否有 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
+  const urlParams = new URLSearchParams(window.location.search)
+  const urlSession = urlParams.get('session')
+  
+  if (urlSession) {
+    console.log('Found session in URL params, storing in localStorage...')
+    localStorage.setItem('session_id', urlSession)
+    // 清除 URL 参数
+    urlParams.delete('session')
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '')
+    window.history.replaceState({}, '', newUrl)
+  }
   
   // 延迟 1 秒后获取用户信息
   setTimeout(async () => {
@@ -63,15 +76,22 @@ onMounted(async () => {
 // 获取用户信息
 async function fetchUserInfo() {
   try {
-    console.log('Fetching user info from:', `${API_BASE}/api/me`)
-    const response = await fetch(`${API_BASE}/api/me`, {
+    // 从 localStorage 获取 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
+    const localSession = localStorage.getItem('session_id')
+    
+    let url = `${API_BASE}/api/me`
+    if (localSession) {
+      url += `?session=${localSession}`
+    }
+    
+    console.log('Fetching user info from:', url)
+    const response = await fetch(url, {
       credentials: 'include',
       headers: {
         'Accept': 'application/json',
       }
     })
     console.log('Response status:', response.status)
-    console.log('Response headers:', [...response.headers.entries()])
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)

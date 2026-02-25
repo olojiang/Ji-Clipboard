@@ -153,16 +153,19 @@ async function handleGitHubCallback(request, env, corsHeaders) {
 
   // 设置 Cookie 并重定向回前端
   // 使用 SameSite=None 因为 Worker 和前端是不同域名
-  const redirectUrl = env.FRONTEND_URL || '/';
+  const redirectUrl = new URL(env.FRONTEND_URL || '/');
   
-  // 设置新 cookie - 添加 Domain 属性
+  // 将 session ID 添加到 URL 参数（用于 iOS Safari 等限制第三方 cookie 的浏览器）
+  redirectUrl.searchParams.set('session', sessionId);
+  
+  // 同时设置 cookie（用于支持第三方 cookie 的浏览器）
   const newCookie = `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Max-Age=${7 * 24 * 60 * 60}; Path=/; Domain=olojiang.workers.dev`;
   
   return new Response(null, {
     status: 302,
     headers: {
       ...corsHeaders,
-      'Location': redirectUrl,
+      'Location': redirectUrl.toString(),
       'Set-Cookie': newCookie,
     },
   });
@@ -170,17 +173,25 @@ async function handleGitHubCallback(request, env, corsHeaders) {
 
 // 获取当前用户信息
 async function handleGetMe(request, env, corsHeaders) {
-  const sessionId = getCookie(request, 'session_id');
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
   const allCookies = request.headers.get('Cookie');
   
   console.log('=== GetMe Debug ===');
-  console.log('All cookies:', allCookies);
-  console.log('Parsed sessionId:', sessionId);
-  console.log('Request origin:', request.headers.get('Origin'));
-  console.log('Request referer:', request.headers.get('Referer'));
+  console.log('Session from URL:', url.searchParams.get('session'));
+  console.log('Session from Cookie:', getCookie(request, 'session_id'));
+  console.log('Final sessionId:', sessionId);
   
   if (!sessionId) {
-    console.log('No sessionId found in cookie');
+    console.log('No sessionId found');
     return jsonResponse({ 
       loggedIn: false, 
       debug: { 
