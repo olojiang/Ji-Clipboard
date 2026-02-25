@@ -56,6 +56,22 @@ export default {
         return handleGetMyShares(request, env, corsHeaders);
       }
 
+      // 剪贴板项目 API
+      if (path === '/api/clipboard-items') {
+        if (request.method === 'GET') {
+          return handleGetClipboardItems(request, env, corsHeaders);
+        }
+        if (request.method === 'POST') {
+          return handleAddClipboardItem(request, env, corsHeaders);
+        }
+      }
+
+      if (path.startsWith('/api/clipboard-items/')) {
+        if (request.method === 'DELETE') {
+          return handleDeleteClipboardItem(request, env, corsHeaders);
+        }
+      }
+
       return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
     } catch (error) {
       console.error('Worker error:', error);
@@ -416,6 +432,157 @@ async function handleGetMyShares(request, env, corsHeaders) {
 
   return jsonResponse({
     shares,
+  }, 200, corsHeaders);
+}
+
+// 获取用户的剪贴板项目列表
+async function handleGetClipboardItems(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  // 从 KV 获取用户的剪贴板列表
+  const userClipboardKey = `user_clipboard:${userId}`;
+  const clipboardData = await env.CLIPBOARD_KV.get(userClipboardKey);
+  const items = clipboardData ? JSON.parse(clipboardData) : [];
+  
+  // 按创建时间倒序排列
+  items.sort((a, b) => b.createdAt - a.createdAt);
+
+  return jsonResponse({
+    items,
+  }, 200, corsHeaders);
+}
+
+// 添加剪贴板项目
+async function handleAddClipboardItem(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  const body = await request.json();
+  const { content } = body;
+
+  if (!content || !content.trim()) {
+    return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
+  }
+
+  // 从 KV 获取现有的剪贴板列表
+  const userClipboardKey = `user_clipboard:${userId}`;
+  const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
+  const items = existingData ? JSON.parse(existingData) : [];
+  
+  // 添加新项目
+  items.push({
+    content: content.trim(),
+    createdAt: Date.now(),
+  });
+  
+  // 保存回 KV（7天过期）
+  await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
+    expirationTtl: 7 * 24 * 60 * 60,
+  });
+
+  return jsonResponse({
+    success: true,
+    item: {
+      content: content.trim(),
+      createdAt: Date.now(),
+    }
+  }, 200, corsHeaders);
+}
+
+// 删除剪贴板项目
+async function handleDeleteClipboardItem(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  // 获取索引
+  const index = parseInt(url.pathname.split('/').pop());
+  if (isNaN(index)) {
+    return jsonResponse({ error: 'Invalid index' }, 400, corsHeaders);
+  }
+
+  // 从 KV 获取现有的剪贴板列表
+  const userClipboardKey = `user_clipboard:${userId}`;
+  const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
+  const items = existingData ? JSON.parse(existingData) : [];
+  
+  if (index < 0 || index >= items.length) {
+    return jsonResponse({ error: 'Index out of range' }, 404, corsHeaders);
+  }
+  
+  // 删除项目
+  items.splice(index, 1);
+  
+  // 保存回 KV
+  await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
+    expirationTtl: 7 * 24 * 60 * 60,
+  });
+
+  return jsonResponse({
+    success: true,
   }, 200, corsHeaders);
 }
 
