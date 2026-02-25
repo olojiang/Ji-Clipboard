@@ -485,6 +485,10 @@ function handleTouchStart(event: TouchEvent, item: any) {
   swipeCurrentX.value = swipeStartX.value
   
   longPressTimer.value = window.setTimeout(() => {
+    // 触发震动反馈
+    if (navigator.vibrate) {
+      navigator.vibrate(50) // 震动 50 毫秒
+    }
     copyClipboard(item.content)
     longPressTimer.value = null
   }, LONG_PRESS_DURATION)
@@ -531,6 +535,10 @@ function handleMouseDown(event: MouseEvent, item: any) {
   swipeCurrentX.value = swipeStartX.value
   
   longPressTimer.value = window.setTimeout(() => {
+    // 触发震动反馈
+    if (navigator.vibrate) {
+      navigator.vibrate(50) // 震动 50 毫秒
+    }
     copyClipboard(item.content)
     longPressTimer.value = null
   }, LONG_PRESS_DURATION)
