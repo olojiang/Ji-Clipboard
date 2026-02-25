@@ -1466,7 +1466,7 @@ function switchTab(tab: string) {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--mdui-color-surface);
+  background: #FEF7FF;
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -1474,8 +1474,8 @@ function switchTab(tab: string) {
 
 .overlay-header {
   flex-shrink: 0;
-  background: var(--mdui-color-surface);
-  border-bottom: 1px solid var(--mdui-color-outline-variant);
+  background: #FEF7FF;
+  border-bottom: 1px solid #E7E0EC;
 }
 
 .overlay-app-bar {
@@ -1486,12 +1486,12 @@ function switchTab(tab: string) {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  background: var(--mdui-color-surface);
+  background: #FEF7FF;
 }
 
 .shares-list {
   padding: 0;
-  background: var(--mdui-color-surface);
+  background: white;
   border-radius: 12px;
 }
 
