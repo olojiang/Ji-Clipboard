@@ -228,8 +228,8 @@ async function handleFetch() {
     }
 
     const data = await response.json()
-    fetchedContent.value = data.content
-    fetchedCode.value = data.code
+    // 跳转到查看页面
+    window.location.href = `./view.html?code=${fetchCode.value}`
   } catch (error) {
     console.error('获取失败:', error)
     fetchError.value = '获取失败，请稍后重试'
