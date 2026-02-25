@@ -152,12 +152,17 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   // 设置 Cookie 并重定向回前端
   // 使用 SameSite=None 因为 Worker 和前端是不同域名
   const redirectUrl = env.FRONTEND_URL || '/';
+  
+  // 先清除可能存在的旧 cookie，然后设置新 cookie
+  const clearCookie = `session_id=; HttpOnly; Secure; SameSite=None; Max-Age=0; Path=/`;
+  const newCookie = `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Max-Age=${7 * 24 * 60 * 60}; Path=/`;
+  
   return new Response(null, {
     status: 302,
     headers: {
       ...corsHeaders,
       'Location': redirectUrl,
-      'Set-Cookie': `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Max-Age=${7 * 24 * 60 * 60}; Path=/`,
+      'Set-Cookie': [clearCookie, newCookie],
     },
   });
 }
