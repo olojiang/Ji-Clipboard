@@ -36,9 +36,9 @@ const LONG_PRESS_DURATION = 800
 const swipeStartX = ref(0)
 const swipeStartY = ref(0)
 const SWIPE_THRESHOLD = 80
-const TAP_THRESHOLD = 10 // 点击阈值，小于这个值认为是点击而不是滑动
+const TAP_THRESHOLD = 10
 let hasVibrated = false
-let isDragging = false // 是否开始拖动
+let isScrolling = false // 是否正在垂直滚动
 
 // 惯性滑动状态
 const velocity = ref(0)
@@ -270,7 +270,7 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
   lastTime.value = Date.now()
   velocity.value = 0
   hasVibrated = false
-  isDragging = false
+  isScrolling = false
   
   console.log('[TouchStart] startX:', swipeStartX.value, 'startY:', swipeStartY.value)
   
@@ -285,31 +285,21 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
     if (navigator.vibrate) navigator.vibrate(50)
     copyClipboard(item.content)
     longPressTimer.value = null
-    isDragging = true // 长按后不处理滑动
+    isScrolling = true // 长按后不处理滑动
   }, LONG_PRESS_DURATION)
 }
 
 // 触摸移动
 function handleTouchMove(event: TouchEvent, item: any) {
-  console.log('[TouchMove] 触发', 'isMultiSelectMode:', isMultiSelectMode.value, 'isDragging:', isDragging)
-  
   // 如果已经在多选模式，不处理滑动
-  if (isMultiSelectMode.value) {
-    console.log('[TouchMove] 多选模式，跳过')
-    return
-  }
+  if (isMultiSelectMode.value) return
   
-  // 如果长按已触发，不处理滑动
-  if (isDragging) {
-    console.log('[TouchMove] 已拖动，跳过')
-    return
-  }
+  // 如果正在垂直滚动，不处理滑动
+  if (isScrolling) return
   
   const touch = event.touches[0]
   const currentX = touch.clientX
   const currentY = touch.clientY
-  
-  console.log('[TouchMove] 当前位置:', currentX, currentY)
   
   // 计算移动距离
   const totalDeltaX = Math.abs(currentX - swipeStartX.value)
@@ -317,21 +307,19 @@ function handleTouchMove(event: TouchEvent, item: any) {
   
   // 如果垂直移动明显大于水平移动（2倍以上），认为是滚动
   if (totalDeltaY > totalDeltaX * 2 && totalDeltaY > TAP_THRESHOLD) {
-    console.log('[TouchMove] 垂直滚动，取消长按和滑动')
+    console.log('[TouchMove] 垂直滚动，取消长按')
     if (longPressTimer.value) {
       clearTimeout(longPressTimer.value)
       longPressTimer.value = null
     }
-    isDragging = true
+    isScrolling = true
     return
   }
   
   // 一旦开始水平移动，取消长按
   if (longPressTimer.value && totalDeltaX > TAP_THRESHOLD) {
-    console.log('[TouchMove] 开始水平移动，取消长按')
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
-    isDragging = true
   }
   
   const currentTime = Date.now()
@@ -347,8 +335,6 @@ function handleTouchMove(event: TouchEvent, item: any) {
   
   const diffX = currentX - swipeStartX.value
   
-  console.log('[TouchMove] diffX:', diffX)
-  
   // 使用更柔和的阻力效果
   const maxSwipe = 120
   let swipeX = diffX
@@ -361,8 +347,6 @@ function handleTouchMove(event: TouchEvent, item: any) {
   }
   
   item.swipeX = swipeX
-  
-  console.log('[TouchMove] 设置 swipeX:', swipeX)
   
   // 实时更新滑动方向指示
   if (diffX < -SWIPE_THRESHOLD) {
