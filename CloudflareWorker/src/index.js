@@ -620,7 +620,23 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
   // 从 KV 获取现有的剪贴板列表
   const userClipboardKey = `user_clipboard:${userId}`;
   const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
-  const items = existingData ? JSON.parse(existingData) : [];
+  let items = existingData ? JSON.parse(existingData) : [];
+
+  // 为旧数据添加 type 字段（从内容推断）
+  items = items.map(item => {
+    if (!item.type) {
+      // 如果内容以 [ 开头，可能是图片数组
+      if (item.content && item.content.startsWith('[') && item.content.includes('http')) {
+        item.type = 'image';
+      } else {
+        item.type = 'text';
+      }
+    }
+    return item;
+  });
+
+  // 按创建时间倒序排列（与获取列表时保持一致）
+  items.sort((a, b) => b.createdAt - a.createdAt);
 
   if (index < 0 || index >= items.length) {
     return jsonResponse({ error: 'Index out of range' }, 404, corsHeaders);
@@ -629,7 +645,7 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
   // 删除项目
   items.splice(index, 1);
 
-  // 保存回 KV
+  // 保存回 KV（保持原始顺序，不按时间排序）
   await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
     expirationTtl: 7 * 24 * 60 * 60,
   });
