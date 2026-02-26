@@ -99,6 +99,11 @@ export default {
         return handleUploadImage(request, env, corsHeaders);
       }
 
+      // 文件上传 API
+      if (path === '/api/upload-file' && request.method === 'POST') {
+        return handleUploadFile(request, env, corsHeaders);
+      }
+
       // 存储管理 API
       if (path === '/api/storage' && request.method === 'GET') {
         return handleGetStorageInfo(request, env, corsHeaders);
@@ -111,6 +116,15 @@ export default {
       // 图片访问代理（解决 R2 401 问题）
       if (path.startsWith('/api/images/') && request.method === 'GET') {
         return handleGetImage(request, env, corsHeaders);
+      }
+
+      // 文件访问和删除 API
+      if (path.startsWith('/api/files/') && request.method === 'GET') {
+        return handleGetFile(request, env, corsHeaders);
+      }
+
+      if (path.startsWith('/api/files/') && request.method === 'DELETE') {
+        return handleDeleteFile(request, env, corsHeaders);
       }
 
       return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
@@ -1157,7 +1171,12 @@ async function handleGetStorageInfo(request, env, corsHeaders) {
   try {
     const userStorageKey = `user_storage:${userId}`;
     const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
-    const storage = storageData ? JSON.parse(storageData) : { totalSize: 0, images: [] };
+    const storage = storageData ? JSON.parse(storageData) : { totalSize: 0, images: [], files: [] };
+
+    // 确保 files 数组存在
+    if (!storage.files) {
+      storage.files = [];
+    }
 
     const MAX_STORAGE = 200 * 1024 * 1024;
 
@@ -1177,6 +1196,7 @@ async function handleGetStorageInfo(request, env, corsHeaders) {
       totalSize: storage.totalSize,
       maxSize: MAX_STORAGE,
       images: updatedImages,
+      files: storage.files,
     }, 200, corsHeaders);
 
   } catch (error) {
@@ -1326,4 +1346,243 @@ async function findImageFileName(env, imageId) {
   }
 
   return null;
+}
+// 上传文件到 R2（支持任意文件类型，最大 50MB）
+async function handleUploadFile(request, env, corsHeaders) {
+  const url = new URL(request.url);
+
+  let sessionId = url.searchParams.get('session');
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+
+  let userId = null;
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  try {
+    const userStorageKey = `user_storage:${userId}`;
+    const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
+    const storage = storageData ? JSON.parse(storageData) : { totalSize: 0, images: [], files: [] };
+
+    // 确保 files 数组存在
+    if (!storage.files) {
+      storage.files = [];
+    }
+
+    const MAX_STORAGE = 200 * 1024 * 1024;
+    if (storage.totalSize >= MAX_STORAGE) {
+      return jsonResponse({ error: 'Storage limit exceeded. Max 200MB.' }, 400, corsHeaders);
+    }
+
+    const formData = await request.formData();
+    const file = formData.get('file');
+
+    if (!file) {
+      return jsonResponse({ error: 'No file provided' }, 400, corsHeaders);
+    }
+
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    if (file.size > MAX_FILE_SIZE) {
+      return jsonResponse({ error: 'File size exceeds 50MB limit' }, 400, corsHeaders);
+    }
+
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 10);
+    const fileExt = file.name.split('.').pop() || 'bin';
+    const fileName = `${userId}/files/${timestamp}-${randomStr}.${fileExt}`;
+
+    await env.IMAGES_BUCKET.put(fileName, file.stream(), {
+      httpMetadata: { 
+        contentType: file.type || 'application/octet-stream',
+        contentDisposition: `attachment; filename="${file.name}"`
+      },
+    });
+
+    // 使用 Worker 代理地址
+    const fileId = `${timestamp}-${randomStr}`;
+    const fileUrl = `${env.WORKER_URL}/api/files/${fileId}`;
+
+    const fileInfo = {
+      id: fileId,
+      url: fileUrl,
+      filename: fileName,
+      originalName: file.name,
+      size: file.size,
+      type: file.type || 'application/octet-stream',
+      createdAt: timestamp,
+    };
+
+    storage.files.push(fileInfo);
+    storage.totalSize += file.size;
+
+    await env.CLIPBOARD_KV.put(userStorageKey, JSON.stringify(storage), {
+      expirationTtl: 30 * 24 * 60 * 60,
+    });
+
+    return jsonResponse({
+      success: true,
+      file: fileInfo,
+      totalSize: storage.totalSize,
+      maxSize: MAX_STORAGE,
+    }, 200, corsHeaders);
+
+  } catch (error) {
+    console.error('Upload file error:', error);
+    return jsonResponse({ error: 'Upload failed: ' + error.message }, 500, corsHeaders);
+  }
+}
+
+// 获取文件（支持下载）
+async function handleGetFile(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const fileId = url.pathname.split('/').pop();
+
+  let sessionId = url.searchParams.get('session');
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+
+  let userId = null;
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  try {
+    // 构建文件名
+    let fileName = null;
+    let originalName = null;
+
+    if (userId) {
+      // 已登录用户，从自己存储中查找
+      const userStorageKey = `user_storage:${userId}`;
+      const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
+
+      if (storageData) {
+        const storage = JSON.parse(storageData);
+        const file = storage.files?.find(f => f.id === fileId);
+        if (file) {
+          fileName = file.filename;
+          originalName = file.originalName;
+        }
+      }
+    }
+
+    // 如果没有找到，尝试从所有用户存储中查找
+    if (!fileName) {
+      const list = await env.CLIPBOARD_KV.list({ prefix: 'user_storage:' });
+      for (const key of list.keys) {
+        const storageData = await env.CLIPBOARD_KV.get(key.name);
+        if (storageData) {
+          const storage = JSON.parse(storageData);
+          const file = storage.files?.find(f => f.id === fileId);
+          if (file) {
+            fileName = file.filename;
+            originalName = file.originalName;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!fileName) {
+      return jsonResponse({ error: 'File not found' }, 404, corsHeaders);
+    }
+
+    // 从 R2 获取文件
+    const object = await env.IMAGES_BUCKET.get(fileName);
+
+    if (!object) {
+      return jsonResponse({ error: 'File not found' }, 404, corsHeaders);
+    }
+
+    // 返回文件数据，支持下载
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+    headers.set('Access-Control-Allow-Origin', corsHeaders['Access-Control-Allow-Origin']);
+    headers.set('Access-Control-Allow-Credentials', 'true');
+    headers.set('Cache-Control', 'public, max-age=86400');
+    
+    // 设置下载文件名
+    if (originalName) {
+      headers.set('Content-Disposition', `attachment; filename="${originalName}"`);
+    }
+
+    return new Response(object.body, { headers });
+
+  } catch (error) {
+    console.error('Get file error:', error);
+    return jsonResponse({ error: 'Failed to get file' }, 500, corsHeaders);
+  }
+}
+
+// 删除文件
+async function handleDeleteFile(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const fileId = url.pathname.split('/').pop();
+
+  let sessionId = url.searchParams.get('session');
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+
+  let userId = null;
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  try {
+    const userStorageKey = `user_storage:${userId}`;
+    const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
+
+    if (!storageData) {
+      return jsonResponse({ error: 'File not found' }, 404, corsHeaders);
+    }
+
+    const storage = JSON.parse(storageData);
+    if (!storage.files) {
+      return jsonResponse({ error: 'File not found' }, 404, corsHeaders);
+    }
+
+    const fileIndex = storage.files.findIndex(f => f.id === fileId);
+
+    if (fileIndex === -1) {
+      return jsonResponse({ error: 'File not found' }, 404, corsHeaders);
+    }
+
+    const file = storage.files[fileIndex];
+    await env.IMAGES_BUCKET.delete(file.filename);
+
+    storage.totalSize -= file.size;
+    storage.files.splice(fileIndex, 1);
+
+    await env.CLIPBOARD_KV.put(userStorageKey, JSON.stringify(storage), {
+      expirationTtl: 30 * 24 * 60 * 60,
+    });
+
+    return jsonResponse({ success: true, totalSize: storage.totalSize }, 200, corsHeaders);
+
+  } catch (error) {
+    console.error('Delete file error:', error);
+    return jsonResponse({ error: 'Delete failed: ' + error.message }, 500, corsHeaders);
+  }
 }
