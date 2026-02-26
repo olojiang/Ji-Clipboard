@@ -204,6 +204,24 @@ async function fetchMyClipboards() {
   }
 }
 
+// 解析图片内容
+function parseImageContent(content: string): string[] {
+  try {
+    const parsed = JSON.parse(content)
+    if (Array.isArray(parsed)) {
+      return parsed
+    }
+  } catch (e) {
+    // 如果不是 JSON，返回空数组
+  }
+  return []
+}
+
+// 打开图片预览
+function openImagePreview(url: string) {
+  window.open(url, '_blank')
+}
+
 // 复制剪贴板内容
 function copyClipboard(content: string) {
   navigator.clipboard.writeText(content).then(() => {
@@ -759,7 +777,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
               >
                 <mdui-button-icon
                   class="clipboard-icon-btn"
-                  :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : (isHttpLink(item.content) ? 'link' : 'content_paste'))"
+                  :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : (item.type === 'image' ? 'image' : (isHttpLink(item.content) ? 'link' : 'content_paste')))"
                   @click.stop="handleIconClick(item)"
                 ></mdui-button-icon>
                 <div class="clipboard-body"
@@ -767,7 +785,20 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
                   @touchmove="handleBodyTouchMove($event)"
                   @touchend="handleBodyTouchEnd($event, item, index)"
                 >
-                  <div class="clipboard-text">{{ item.content }}</div>
+                  <!-- 图片类型 -->
+                  <div v-if="item.type === 'image'" class="clipboard-images">
+                    <div class="image-grid">
+                      <img 
+                        v-for="(url, imgIndex) in parseImageContent(item.content)" 
+                        :key="imgIndex"
+                        :src="url" 
+                        class="clipboard-image"
+                        @click.stop="openImagePreview(url)"
+                      >
+                    </div>
+                  </div>
+                  <!-- 文本类型 -->
+                  <div v-else class="clipboard-text">{{ item.content }}</div>
                   <div class="clipboard-date">{{ formatDate(item.createdAt) }}</div>
                 </div>
               </div>
@@ -1008,6 +1039,29 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 
 .clipboard-body:active {
   background: var(--mdui-color-surface-container-highest);
+}
+
+.clipboard-images {
+  width: 100%;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+.clipboard-image {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.clipboard-image:hover {
+  transform: scale(1.05);
 }
 
 .clipboard-text {
