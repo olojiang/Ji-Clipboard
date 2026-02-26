@@ -22,6 +22,11 @@ const fetchedContent = ref('')
 const fetchedCode = ref('')
 const isShareContent = ref(false) // 标记是否是分享内容
 
+// 权限错误弹窗状态
+const showPermissionDialog = ref(false)
+const permissionErrorTitle = ref('')
+const permissionErrorMessage = ref('')
+
 // 计算属性：渲染获取到的内容
 const renderedFetchedContent = computed(() => {
   if (!fetchedContent.value) return ''
@@ -118,13 +123,19 @@ async function handleFetchShare(shareCode: string) {
     }
 
     if (response.status === 401) {
-      fetchError.value = '需要登录才能查看此分享'
+      console.log('[FetchPage] 需要登录')
+      permissionErrorTitle.value = '需要登录'
+      permissionErrorMessage.value = '此分享需要登录后才能查看，请先登录。'
+      showPermissionDialog.value = true
       isFetching.value = false
       return
     }
 
     if (response.status === 403) {
-      fetchError.value = '无权查看此分享'
+      console.log('[FetchPage] 无权查看')
+      permissionErrorTitle.value = '无权查看'
+      permissionErrorMessage.value = '您没有权限查看此分享内容。'
+      showPermissionDialog.value = true
       isFetching.value = false
       return
     }
@@ -175,6 +186,13 @@ function copyContent() {
     document.body.removeChild(input)
     emit('showToast', '内容已复制')
   })
+}
+
+// 关闭权限错误弹窗
+function closePermissionDialog() {
+  showPermissionDialog.value = false
+  permissionErrorTitle.value = ''
+  permissionErrorMessage.value = ''
 }
 </script>
 
@@ -233,6 +251,24 @@ function copyContent() {
         </mdui-button>
       </mdui-card>
     </div>
+
+    <!-- 权限错误弹窗 -->
+    <mdui-dialog
+      :open="showPermissionDialog"
+      @close="closePermissionDialog"
+      :headline="permissionErrorTitle"
+      style="max-width: 400px;"
+    >
+      <div style="padding: 16px 0;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <mdui-icon name="lock" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
+          <p style="margin: 0; font-size: 14px; color: var(--mdui-color-on-surface-variant);">
+            {{ permissionErrorMessage }}
+          </p>
+        </div>
+      </div>
+      <mdui-button slot="action" variant="filled" @click="closePermissionDialog">确定</mdui-button>
+    </mdui-dialog>
   </div>
 </template>
 
