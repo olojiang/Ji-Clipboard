@@ -776,7 +776,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 .fab-add {
   position: fixed;
   right: 16px;
-  bottom: 80px;
+  bottom: 96px;
   z-index: 100;
 }
 
