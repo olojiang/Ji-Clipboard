@@ -661,30 +661,27 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       <!-- 悬浮添加按钮 -->
       <mdui-fab v-if="!isMultiSelectMode" class="fab-add" icon="add" @click="showAddClipboardDialog = true"></mdui-fab>
 
-      <!-- 长按菜单 -->
-      <div 
-        v-if="showContextMenu" 
-        class="context-menu-overlay"
-        @click="closeContextMenu"
+      <!-- 长按菜单 - 使用 MDUI Menu -->
+      <mdui-menu
+        :open="showContextMenu"
+        @close="closeContextMenu"
+        :style="{ position: 'fixed', left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
       >
-        <div 
-          class="context-menu" 
-          :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
-          @click.stop
-        >
-          <div class="context-menu-title">{{ contextMenuItem?.content?.substring(0, 20) }}...{{ contextMenuItem?.content?.length > 20 ? '...' : '' }}</div>
-          <mdui-list>
-            <mdui-list-item @click="copyClipboard(contextMenuItem?.content); closeContextMenu()">
-              <mdui-icon slot="icon" name="content_copy"></mdui-icon>
-              <div slot="headline">复制</div>
-            </mdui-list-item>
-            <mdui-list-item @click="deleteClipboard(contextMenuItem?.index, true); closeContextMenu()">
-              <mdui-icon slot="icon" name="delete" style="color: var(--mdui-color-error)"></mdui-icon>
-              <div slot="headline" style="color: var(--mdui-color-error)">删除</div>
-            </mdui-list-item>
-          </mdui-list>
-        </div>
-      </div>
+        <mdui-menu-item v-if="contextMenuItem" disabled>
+          <span style="font-size: 12px; color: var(--mdui-color-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; display: block;">
+            {{ contextMenuItem?.content?.substring(0, 30) }}{{ contextMenuItem?.content?.length > 30 ? '...' : '' }}
+          </span>
+        </mdui-menu-item>
+        <mdui-divider></mdui-divider>
+        <mdui-menu-item @click="copyClipboard(contextMenuItem?.content); closeContextMenu()">
+          <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+          复制
+        </mdui-menu-item>
+        <mdui-menu-item @click="deleteClipboard(contextMenuItem?.index, true); closeContextMenu()">
+          <mdui-icon slot="icon" name="delete" style="color: var(--mdui-color-error)"></mdui-icon>
+          <span style="color: var(--mdui-color-error)">删除</span>
+        </mdui-menu-item>
+      </mdui-menu>
 
       <!-- 添加剪贴板弹窗 -->
       <mdui-dialog
