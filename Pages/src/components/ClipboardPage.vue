@@ -574,13 +574,13 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             @click="isMultiSelectMode && toggleSelection(index)"
           >
             <!-- 左滑背景（删除）-->
-            <div v-if="!isMultiSelectMode" class="swipe-bg swipe-bg-left">
+            <div v-if="!isMultiSelectMode && item.swipeLeft" class="swipe-bg swipe-bg-left">
               <mdui-icon name="delete" style="font-size: 24px; color: white;"></mdui-icon>
               <span>删除</span>
             </div>
             
             <!-- 右滑背景（多选）-->
-            <div v-if="!isMultiSelectMode" class="swipe-bg swipe-bg-right">
+            <div v-if="!isMultiSelectMode && item.swipeRight" class="swipe-bg swipe-bg-right">
               <mdui-icon name="check_box" style="font-size: 24px; color: white;"></mdui-icon>
               <span>多选</span>
             </div>
