@@ -212,29 +212,28 @@ function closeNotFoundDialog() {
 
 <template>
   <div class="section">
-    <!-- 显示获取到的内容 -->
-    <div v-if="fetchedContent" class="section">
-      <!-- 分享码/提取码 ID 显示在顶部 -->
-      <div class="share-id-header">
-        <mdui-chip icon="share" variant="outlined">
+    <!-- 显示获取到的内容 - 全屏遮罩样式 -->
+    <div v-if="fetchedContent" class="share-overlay">
+      <!-- 顶部栏 -->
+      <div class="share-overlay-header">
+        <mdui-chip icon="tag" variant="outlined">
           {{ isShareContent ? '分享码' : '提取码' }}: {{ fetchedCode }}
         </mdui-chip>
-        <mdui-button-icon icon="close" @click="clearFetchedContent"></mdui-button-icon>
+        <mdui-button-icon icon="close" @click="clearFetchedContent" class="close-btn"></mdui-button-icon>
       </div>
       
-      <!-- 内容用 card 显示 -->
-      <mdui-card class="content-display-card">
-        <div class="markdown-body" v-html="renderedFetchedContent"></div>
-      </mdui-card>
+      <!-- 内容区域 -->
+      <div class="share-overlay-content">
+        <mdui-card class="share-content-card">
+          <div class="markdown-body" v-html="renderedFetchedContent"></div>
+        </mdui-card>
+      </div>
       
-      <!-- 操作按钮 -->
-      <div class="content-actions">
+      <!-- 底部操作栏 -->
+      <div class="share-overlay-footer">
         <mdui-button variant="filled" @click="copyContent">
           <mdui-icon slot="icon" name="content_copy"></mdui-icon>
           复制内容
-        </mdui-button>
-        <mdui-button variant="outlined" @click="clearFetchedContent">
-          返回
         </mdui-button>
       </div>
     </div>
@@ -335,29 +334,61 @@ function closeNotFoundDialog() {
   --mdui-button-height: 48px;
 }
 
-.share-id-header {
+/* 全屏遮罩样式 */
+.share-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mdui-color-surface-container-low);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.share-overlay-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding: 0 4px;
+  padding: 16px;
+  background: var(--mdui-color-surface);
+  border-bottom: 1px solid var(--mdui-color-outline-variant);
+  flex-shrink: 0;
 }
 
-.share-id-header mdui-chip {
+.share-overlay-header mdui-chip {
   font-family: 'SF Mono', Monaco, monospace;
   font-weight: 600;
 }
 
-.content-display-card {
-  padding: 20px;
-  margin-bottom: 16px;
+.close-btn {
+  --mdui-button-icon-size: 48px;
 }
 
-.content-actions {
+.share-overlay-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.share-content-card {
+  padding: 20px;
+  min-height: calc(100% - 40px);
+}
+
+.share-overlay-footer {
+  padding: 16px;
+  background: var(--mdui-color-surface);
+  border-top: 1px solid var(--mdui-color-outline-variant);
   display: flex;
-  gap: 12px;
   justify-content: center;
-  padding: 0 4px;
+  flex-shrink: 0;
 }
 
 .markdown-body {
