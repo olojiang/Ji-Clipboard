@@ -228,20 +228,22 @@ async function undoDelete() {
 
   try {
     const sessionId = localStorage.getItem('session_id')
-    let url = `${API_BASE}/api/clipboard-items`
+    // 使用 PUT 请求恢复到原来的位置
+    let url = `${API_BASE}/api/clipboard-items/${lastDeletedItem.value.index}`
     if (sessionId) {
       url += `?session=${sessionId}`
     }
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: 'PUT',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        content: lastDeletedItem.value.content
+        content: lastDeletedItem.value.content,
+        createdAt: lastDeletedItem.value.createdAt
       })
     })
 
@@ -641,6 +643,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
                   class="clipboard-icon" 
                   :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
                   @click.stop="copyClipboard(item.content)"
+                  mdui-ripple
                 ></mdui-icon>
                 <div class="clipboard-body"
                   @touchstart="handleBodyTouchStart($event, item, index)"
@@ -872,17 +875,22 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   flex-shrink: 0;
   margin-top: 4px;
   cursor: pointer;
-  padding: 4px;
+  padding: 8px;
   border-radius: 50%;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .clipboard-icon:hover {
   background: var(--mdui-color-surface-container-highest);
+  transform: scale(1.05);
 }
 
 .clipboard-icon:active {
-  background: var(--mdui-color-surface-container-high);
+  background: var(--mdui-color-primary-container);
+  color: var(--mdui-color-primary);
+  transform: scale(0.95);
 }
 
 .clipboard-body {
@@ -893,6 +901,13 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   gap: 4px;
   user-select: none;
   -webkit-user-select: none;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.clipboard-body:active {
+  background: var(--mdui-color-surface-container-highest);
 }
 
 .clipboard-text {
