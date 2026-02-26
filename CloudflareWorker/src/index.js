@@ -108,6 +108,11 @@ export default {
         return handleDeleteImage(request, env, corsHeaders);
       }
 
+      // 图片访问代理（解决 R2 401 问题）
+      if (path.startsWith('/api/images/') && request.method === 'GET') {
+        return handleGetImage(request, env, corsHeaders);
+      }
+
       return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
     } catch (error) {
       console.error('Worker error:', error);
@@ -1068,10 +1073,12 @@ async function handleUploadImage(request, env, corsHeaders) {
       httpMetadata: { contentType: file.type || 'image/jpeg' },
     });
 
-    const imageUrl = `${env.IMAGES_PUBLIC_URL}/${fileName}`;
+    // 使用 Worker 代理地址，避免 R2 401 问题
+    const imageId = `${timestamp}-${randomStr}`;
+    const imageUrl = `${env.WORKER_URL}/api/images/${imageId}`;
 
     const imageInfo = {
-      id: `${timestamp}-${randomStr}`,
+      id: imageId,
       url: imageUrl,
       filename: fileName,
       size: file.size,
@@ -1191,4 +1198,92 @@ async function handleDeleteImage(request, env, corsHeaders) {
     console.error('Delete image error:', error);
     return jsonResponse({ error: 'Delete failed: ' + error.message }, 500, corsHeaders);
   }
+}
+// 获取图片（代理 R2 访问）
+async function handleGetImage(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const imageId = url.pathname.split('/').pop();
+  
+  // 从 URL 参数获取用户信息（用于验证权限）
+  let sessionId = url.searchParams.get('session');
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  try {
+    // 构建图片文件名（需要 userId 前缀）
+    let fileName;
+    
+    if (userId) {
+      // 已登录用户，从自己存储中查找
+      const userStorageKey = `user_storage:${userId}`;
+      const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
+      
+      if (storageData) {
+        const storage = JSON.parse(storageData);
+        const image = storage.images.find(img => img.id === imageId);
+        if (image) {
+          fileName = image.filename;
+        }
+      }
+    }
+    
+    // 如果没有找到，尝试直接访问（用于分享的图片）
+    if (!fileName) {
+      // 从所有用户存储中查找（简化处理，实际可能需要更好的方案）
+      fileName = await findImageFileName(env, imageId);
+    }
+
+    if (!fileName) {
+      return jsonResponse({ error: 'Image not found' }, 404, corsHeaders);
+    }
+
+    // 从 R2 获取图片
+    const object = await env.IMAGES_BUCKET.get(fileName);
+    
+    if (!object) {
+      return jsonResponse({ error: 'Image not found' }, 404, corsHeaders);
+    }
+
+    // 返回图片数据
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+    headers.set('Access-Control-Allow-Origin', corsHeaders['Access-Control-Allow-Origin']);
+    headers.set('Access-Control-Allow-Credentials', 'true');
+    headers.set('Cache-Control', 'public, max-age=86400');
+
+    return new Response(object.body, { headers });
+
+  } catch (error) {
+    console.error('Get image error:', error);
+    return jsonResponse({ error: 'Failed to get image' }, 500, corsHeaders);
+  }
+}
+
+// 辅助函数：在所有用户存储中查找图片
+async function findImageFileName(env, imageId) {
+  // 列出所有用户存储键
+  const list = await env.CLIPBOARD_KV.list({ prefix: 'user_storage:' });
+  
+  for (const key of list.keys) {
+    const storageData = await env.CLIPBOARD_KV.get(key.name);
+    if (storageData) {
+      const storage = JSON.parse(storageData);
+      const image = storage.images.find(img => img.id === imageId);
+      if (image) {
+        return image.filename;
+      }
+    }
+  }
+  
+  return null;
 }
