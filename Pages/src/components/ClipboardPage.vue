@@ -639,12 +639,12 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
               <div class="clipboard-item-row" :class="{ 'is-multi-select': isMultiSelectMode }"
                 @contextmenu.prevent="handleLongPress($event, item, index)"
               >
-                <mdui-icon 
-                  class="clipboard-icon" 
-                  :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
-                  @click.stop="copyClipboard(item.content)"
-                  mdui-ripple
-                ></mdui-icon>
+                <div class="clipboard-icon-wrapper" @click.stop="copyClipboard(item.content)">
+                  <mdui-icon 
+                    class="clipboard-icon" 
+                    :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
+                  ></mdui-icon>
+                </div>
                 <div class="clipboard-body"
                   @touchstart="handleBodyTouchStart($event, item, index)"
                   @touchend="handleBodyTouchEnd($event, item, index)"
@@ -869,28 +869,35 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   background: var(--mdui-color-primary-container);
 }
 
-.clipboard-icon {
-  font-size: 24px;
-  color: var(--mdui-color-on-surface-variant);
+.clipboard-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
   flex-shrink: 0;
   margin-top: 4px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
 }
 
-.clipboard-icon:hover {
+.clipboard-icon-wrapper:hover {
   background: var(--mdui-color-surface-container-highest);
   transform: scale(1.05);
 }
 
-.clipboard-icon:active {
+.clipboard-icon-wrapper:active {
   background: var(--mdui-color-primary-container);
+}
+
+.clipboard-icon {
+  font-size: 24px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+.clipboard-icon-wrapper:active .clipboard-icon {
   color: var(--mdui-color-primary);
-  transform: scale(0.95);
 }
 
 .clipboard-body {
