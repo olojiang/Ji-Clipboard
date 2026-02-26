@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import ShareDialog from './ShareDialog.vue'
+import AddClipboardDialog from './AddClipboardDialog.vue'
 
 const props = defineProps<{
   user: { loggedIn: boolean }
@@ -86,13 +87,8 @@ function closeAddClipboardDialog() {
   clipboardError.value = ''
 }
 
-// 添加剪贴板
-async function handleAddClipboard() {
-  if (!clipboardInput.value || !clipboardInput.value.trim()) {
-    clipboardError.value = '请输入剪贴板内容'
-    return
-  }
-
+// 添加文本剪贴板
+async function handleAddTextClipboard(content: string) {
   clipboardError.value = ''
   isAddingClipboard.value = true
 
@@ -111,7 +107,8 @@ async function handleAddClipboard() {
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        content: clipboardInput.value.trim()
+        content: content,
+        type: 'text'
       })
     })
 
@@ -120,12 +117,52 @@ async function handleAddClipboard() {
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
     }
 
-    clipboardInput.value = ''
     showAddClipboardDialog.value = false
     await fetchMyClipboards()
     emit('showToast', '添加成功')
   } catch (error) {
     console.error('添加剪贴板失败:', error)
+    clipboardError.value = (error as Error).message || '添加失败，请重试'
+  } finally {
+    isAddingClipboard.value = false
+  }
+}
+
+// 添加图片剪贴板
+async function handleAddImageClipboard(imageUrls: string[]) {
+  clipboardError.value = ''
+  isAddingClipboard.value = true
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard-items`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        content: JSON.stringify(imageUrls),
+        type: 'image'
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    }
+
+    showAddClipboardDialog.value = false
+    await fetchMyClipboards()
+    emit('showToast', '图片添加成功')
+  } catch (error) {
+    console.error('添加图片剪贴板失败:', error)
     clipboardError.value = (error as Error).message || '添加失败，请重试'
   } finally {
     isAddingClipboard.value = false
@@ -782,25 +819,12 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       />
 
       <!-- 添加剪贴板弹窗 -->
-      <mdui-dialog
+      <AddClipboardDialog
         :open="showAddClipboardDialog"
         @close="closeAddClipboardDialog"
-        headline="添加剪贴板"
-        style="max-width: 500px; width: 90%;"
-      >
-        <textarea
-          v-model="clipboardInput"
-          class="clipboard-dialog-textarea"
-          placeholder="在此输入剪贴板内容..."
-          rows="3"
-        ></textarea>
-        <div v-if="clipboardError" class="error-message" style="margin-top: 8px;">
-          <mdui-icon name="error" style="font-size: 16px;"></mdui-icon>
-          {{ clipboardError }}
-        </div>
-        <mdui-button slot="action" variant="text" @click="closeAddClipboardDialog">取消</mdui-button>
-        <mdui-button slot="action" variant="filled" :loading="isAddingClipboard" @click="handleAddClipboard">添加</mdui-button>
-      </mdui-dialog>
+        @add-text="handleAddTextClipboard"
+        @add-images="handleAddImageClipboard"
+      />
     </template>
   </div>
 </template>
