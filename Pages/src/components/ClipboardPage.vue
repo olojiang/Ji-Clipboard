@@ -669,10 +669,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
           :style="{ position: 'fixed', left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px', 'z-index': '10001' }"
           @click.stop
         >
-          <mdui-menu-item @click="copyClipboard(contextMenuItem?.content); closeContextMenu()">
-            <mdui-icon slot="icon" name="content_copy"></mdui-icon>
-            复制
-          </mdui-menu-item>
           <mdui-menu-item @click="deleteClipboard(contextMenuItem?.index, true); closeContextMenu()">
             <mdui-icon slot="icon" name="delete" style="color: var(--mdui-color-error)"></mdui-icon>
             <span style="color: var(--mdui-color-error)">删除</span>
