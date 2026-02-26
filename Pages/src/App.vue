@@ -220,6 +220,7 @@ function hideToast() {
   min-height: 100vh;
   background: var(--mdui-color-surface-container-low);
   padding-bottom: 80px;
+  box-sizing: border-box;
 }
 
 .app-bar {
