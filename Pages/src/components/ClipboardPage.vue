@@ -740,14 +740,16 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   left: 0;
   background: #F44336;
   color: white;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  padding-left: 24px;
 }
 
 .swipe-bg-right {
   right: 0;
   background: #4CAF50;
   color: white;
-  justify-content: flex-start;
+  justify-content: flex-end;
+  padding-right: 24px;
 }
 
 .swipe-bg span {
