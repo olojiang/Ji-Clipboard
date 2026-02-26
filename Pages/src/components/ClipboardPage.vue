@@ -869,7 +869,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
-  margin-top: 4px;
+  align-self: center;
 }
 
 .clipboard-icon-wrapper:hover {
