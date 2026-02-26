@@ -11,10 +11,16 @@ id = "4d3108cf9f304c01a5705594b5cb89a0"
 binding = "CLIPBOARD_KV"
 id = "90fd29663db94abd90f26b9ccc8603e7"
 
+# R2 存储桶
+[[r2_buckets]]
+bucket_name = "ji-clipboard-images"
+binding = "IMAGES_BUCKET"
+
 # 环境变量（敏感信息用 wrangler secret 设置）
 [vars]
 FRONTEND_URL = "https://olojiang.github.io/Ji-Clipboard"
 WORKER_URL = "https://ji-clipboard-worker.olojiang.workers.dev"
+IMAGES_PUBLIC_URL = "https://pub-7d261629476c47c3a5cf237cb0f005c8.r2.dev"
 
 #  secrets（通过 wrangler secret put 设置）:
 #  GITHUB_CLIENT_ID
