@@ -397,10 +397,13 @@ function closeNotFoundDialog() {
 
           <mdui-button
             variant="filled"
-            class="fetch-btn"
             :loading="isFetching"
             @click="handleFetch"
-            style="--mdui-button-height: 48px;"
+            style="
+              --mdui-button-height: 48px;
+              border-radius: 8px;
+              white-space: nowrap;
+            "
           >
             <mdui-icon slot="icon" name="arrow_forward"></mdui-icon>
             获取
