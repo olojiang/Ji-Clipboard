@@ -312,14 +312,23 @@ function closeNotFoundDialog() {
         <h2 class="title">获取分享</h2>
         <p class="subtitle">输入5位提取码或分享码，立即获取分享的内容</p>
 
-        <mdui-text-field
+        <input
           v-model="fetchCodeModel"
-          label="5位提取码 / 分享码"
+          placeholder="5位提取码 / 分享码"
           maxlength="5"
-          class="code-input"
-          :error="!!fetchError"
-          :error-text="fetchError"
-        ></mdui-text-field>
+          class="code-input-native"
+          style="
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 1px solid var(--mdui-color-outline);
+            border-radius: 8px;
+            background: var(--mdui-color-surface);
+            color: var(--mdui-color-on-surface);
+            box-sizing: border-box;
+            margin-bottom: 16px;
+          "
+        />
 
         <mdui-button
           variant="filled"
