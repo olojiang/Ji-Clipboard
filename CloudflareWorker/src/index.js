@@ -124,7 +124,7 @@ export default {
 // GitHub OAuth 登录
 async function handleGitHubAuth(request, env, corsHeaders) {
   const state = generateRandomString(32);
-  
+
   // 存储 state 到 KV（5分钟过期）
   await env.AUTH_KV.put(`state:${state}`, '1', { expirationTtl: 300 });
 
@@ -170,7 +170,7 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   });
 
   const tokenData = await tokenResponse.json();
-  
+
   if (tokenData.error) {
     return jsonResponse({ error: tokenData.error_description }, 400, corsHeaders);
   }
@@ -187,13 +187,13 @@ async function handleGitHubCallback(request, env, corsHeaders) {
 
   // 生成 session ID
   const sessionId = generateRandomString(32);
-  
+
   // 检查该用户是否已有会话，如果有则删除旧会话
   const existingSessionId = await env.AUTH_KV.get(`user_session:${githubUser.id}`);
   if (existingSessionId) {
     await env.AUTH_KV.delete(`session:${existingSessionId}`);
   }
-  
+
   // 存储用户会话到 KV（30天过期）
   const sessionData = {
     userId: githubUser.id,
@@ -216,16 +216,16 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   // 设置 Cookie 并重定向回前端
   // 使用 SameSite=None 因为 Worker 和前端是不同域名
   const redirectUrl = new URL(env.FRONTEND_URL || '/');
-  
+
   // 添加 hash 跳转到"我的"标签页
   redirectUrl.hash = 'profile';
-  
+
   // 将 session ID 添加到 URL 参数（用于 iOS Safari 等限制第三方 cookie 的浏览器）
   redirectUrl.searchParams.set('session', sessionId);
-  
+
   // 同时设置 cookie（用于支持第三方 cookie 的浏览器）
   const newCookie = `session_id=${sessionId}; HttpOnly; Secure; SameSite=None; Max-Age=${30 * 24 * 60 * 60}; Path=/; Domain=olojiang.workers.dev`;
-  
+
   return new Response(null, {
     status: 302,
     headers: {
@@ -239,44 +239,44 @@ async function handleGitHubCallback(request, env, corsHeaders) {
 // 获取当前用户信息
 async function handleGetMe(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session（用于 iOS Safari 等限制第三方 cookie 的浏览器）
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   const allCookies = request.headers.get('Cookie');
-  
+
   console.log('=== GetMe Debug ===');
   console.log('Session from URL:', url.searchParams.get('session'));
   console.log('Session from Cookie:', getCookie(request, 'session_id'));
   console.log('Final sessionId:', sessionId);
-  
+
   if (!sessionId) {
     console.log('No sessionId found');
-    return jsonResponse({ 
-      loggedIn: false, 
-      debug: { 
+    return jsonResponse({
+      loggedIn: false,
+      debug: {
         reason: 'no_session_id',
-        allCookies: allCookies 
-      } 
+        allCookies: allCookies
+      }
     }, 200, corsHeaders);
   }
 
   try {
     const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
-    
+
     if (!sessionData) {
       console.log('Session not found in KV for sessionId:', sessionId);
-      return jsonResponse({ 
-        loggedIn: false, 
-        debug: { 
+      return jsonResponse({
+        loggedIn: false,
+        debug: {
           reason: 'session_not_found',
-          sessionId: sessionId 
-        } 
+          sessionId: sessionId
+        }
       }, 200, corsHeaders);
     }
 
@@ -294,8 +294,8 @@ async function handleGetMe(request, env, corsHeaders) {
     }, 200, corsHeaders);
   } catch (error) {
     console.error('Error in handleGetMe:', error);
-    return jsonResponse({ 
-      loggedIn: false, 
+    return jsonResponse({
+      loggedIn: false,
       error: 'Server error',
       debug: { message: error.message }
     }, 500, corsHeaders);
@@ -305,7 +305,7 @@ async function handleGetMe(request, env, corsHeaders) {
 // 登出
 async function handleLogout(request, env, corsHeaders) {
   const sessionId = getCookie(request, 'session_id');
-  
+
   if (sessionId) {
     await env.AUTH_KV.delete(`session:${sessionId}`);
   }
@@ -319,15 +319,15 @@ async function handleLogout(request, env, corsHeaders) {
 // 保存剪贴板数据
 async function handleSaveClipboard(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
 
   if (sessionId) {
@@ -384,10 +384,10 @@ async function handleSaveClipboard(request, env, corsHeaders) {
 // 获取剪贴板数据
 async function handleGetClipboard(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 支持两种方式：path parameter 和 query parameter
   let code = url.searchParams.get('code');
-  
+
   // 如果没有 query parameter，尝试从 path 获取
   if (!code) {
     code = url.pathname.split('/').pop();
@@ -404,7 +404,7 @@ async function handleGetClipboard(request, env, corsHeaders) {
   }
 
   const clipboard = JSON.parse(data);
-  
+
   // 检查是否过期
   if (Date.now() > clipboard.expiresAt) {
     await env.CLIPBOARD_KV.delete(`clip:${code}`);
@@ -423,15 +423,15 @@ async function handleGetClipboard(request, env, corsHeaders) {
 // 获取我的分享列表
 async function handleGetMyShares(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
 
   if (sessionId) {
@@ -451,7 +451,7 @@ async function handleGetMyShares(request, env, corsHeaders) {
   const userSharesKey = `user_shares:${userId}`;
   const sharesData = await env.CLIPBOARD_KV.get(userSharesKey);
   const shareCodes = sharesData ? JSON.parse(sharesData) : [];
-  
+
   // 获取每个分享的详细信息
   const shares = [];
   for (const code of shareCodes) {
@@ -467,7 +467,7 @@ async function handleGetMyShares(request, env, corsHeaders) {
       });
     }
   }
-  
+
   // 按创建时间倒序排列
   shares.sort((a, b) => b.createdAt - a.createdAt);
 
@@ -479,15 +479,15 @@ async function handleGetMyShares(request, env, corsHeaders) {
 // 获取用户的剪贴板项目列表
 async function handleGetClipboardItems(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
 
   if (sessionId) {
@@ -505,8 +505,21 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
   // 从 KV 获取用户的剪贴板列表
   const userClipboardKey = `user_clipboard:${userId}`;
   const clipboardData = await env.CLIPBOARD_KV.get(userClipboardKey);
-  const items = clipboardData ? JSON.parse(clipboardData) : [];
-  
+  let items = clipboardData ? JSON.parse(clipboardData) : [];
+
+  // 为旧数据添加 type 字段（从内容推断）
+  items = items.map(item => {
+    if (!item.type) {
+      // 如果内容以 [ 开头，可能是图片数组
+      if (item.content && item.content.startsWith('[') && item.content.includes('http')) {
+        item.type = 'image';
+      } else {
+        item.type = 'text';
+      }
+    }
+    return item;
+  });
+
   // 按创建时间倒序排列
   items.sort((a, b) => b.createdAt - a.createdAt);
 
@@ -518,15 +531,15 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
 // 添加剪贴板项目
 async function handleAddClipboardItem(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
 
   if (sessionId) {
@@ -552,7 +565,7 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
   const userClipboardKey = `user_clipboard:${userId}`;
   const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
   const items = existingData ? JSON.parse(existingData) : [];
-  
+
   // 添加新项目
   const newItem = {
     content: content.trim(),
@@ -560,7 +573,7 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
     createdAt: Date.now(),
   };
   items.push(newItem);
-  
+
   // 保存回 KV（7天过期）
   await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
     expirationTtl: 7 * 24 * 60 * 60,
@@ -575,15 +588,15 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
 // 删除剪贴板项目
 async function handleDeleteClipboardItem(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
 
   if (sessionId) {
@@ -608,14 +621,14 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
   const userClipboardKey = `user_clipboard:${userId}`;
   const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
   const items = existingData ? JSON.parse(existingData) : [];
-  
+
   if (index < 0 || index >= items.length) {
     return jsonResponse({ error: 'Index out of range' }, 404, corsHeaders);
   }
-  
+
   // 删除项目
   items.splice(index, 1);
-  
+
   // 保存回 KV
   await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
     expirationTtl: 7 * 24 * 60 * 60,
@@ -641,15 +654,15 @@ async function generateUniqueCode(env, maxAttempts = 10) {
 // 恢复剪贴板项目到指定位置
 async function handleRestoreClipboardItem(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
 
   if (sessionId) {
@@ -681,17 +694,17 @@ async function handleRestoreClipboardItem(request, env, corsHeaders) {
   const userClipboardKey = `user_clipboard:${userId}`;
   const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
   const items = existingData ? JSON.parse(existingData) : [];
-  
+
   // 在指定位置插入项目
   const itemToRestore = {
     content: content.trim(),
     createdAt: createdAt || Date.now(),
   };
-  
+
   // 确保索引在有效范围内
   const insertIndex = Math.min(Math.max(0, index), items.length);
   items.splice(insertIndex, 0, itemToRestore);
-  
+
   // 保存回 KV（7天过期）
   await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
     expirationTtl: 7 * 24 * 60 * 60,
@@ -715,7 +728,7 @@ function generateRandomString(length) {
 function getCookie(request, name) {
   const cookies = request.headers.get('Cookie');
   if (!cookies) return null;
-  
+
   const match = cookies.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
@@ -840,7 +853,7 @@ async function handleGetShare(request, env, corsHeaders) {
   const url = new URL(request.url);
   // 支持从 query 参数获取分享码（适配 GitHub Pages）
   let shareId = url.searchParams.get('share');
-  
+
   // 如果没有 query 参数，尝试从 path 获取
   if (!shareId) {
     shareId = url.pathname.split('/').pop();
@@ -871,7 +884,7 @@ async function handleGetShare(request, env, corsHeaders) {
     if (!sessionId) {
       sessionId = getCookie(request, 'session_id');
     }
-    
+
     let userId = null;
     if (sessionId) {
       const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
@@ -889,7 +902,7 @@ async function handleGetShare(request, env, corsHeaders) {
     if (!sessionId) {
       sessionId = getCookie(request, 'session_id');
     }
-    
+
     let userId = null;
     if (sessionId) {
       const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
@@ -917,15 +930,15 @@ async function handleGetShare(request, env, corsHeaders) {
 // 获取我的分享列表
 async function handleGetMySharesList(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
 
   if (sessionId) {
@@ -944,11 +957,11 @@ async function handleGetMySharesList(request, env, corsHeaders) {
   const userSharesKey = `user_shares_list:${userId}`;
   const sharesData = await env.CLIPBOARD_KV.get(userSharesKey);
   const shares = sharesData ? JSON.parse(sharesData) : [];
-  
+
   // 过滤掉已过期的分享
   const now = Date.now();
   const validShares = shares.filter(s => s.expiresAt > now);
-  
+
   // 如果有过期分享被过滤，更新列表
   if (validShares.length !== shares.length) {
     await env.CLIPBOARD_KV.put(userSharesKey, JSON.stringify(validShares), {
@@ -965,15 +978,15 @@ async function handleGetMySharesList(request, env, corsHeaders) {
 async function handleDeleteShare(request, env, corsHeaders) {
   const url = new URL(request.url);
   const shareId = url.pathname.split('/').pop();
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
 
   if (sessionId) {
@@ -1023,12 +1036,12 @@ async function handleDeleteShare(request, env, corsHeaders) {
 // 上传图片到 R2
 async function handleUploadImage(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   let sessionId = url.searchParams.get('session');
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
   if (sessionId) {
     const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
@@ -1045,7 +1058,7 @@ async function handleUploadImage(request, env, corsHeaders) {
     const userStorageKey = `user_storage:${userId}`;
     const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
     const storage = storageData ? JSON.parse(storageData) : { totalSize: 0, images: [] };
-    
+
     const MAX_STORAGE = 200 * 1024 * 1024;
     if (storage.totalSize >= MAX_STORAGE) {
       return jsonResponse({ error: 'Storage limit exceeded. Max 200MB.' }, 400, corsHeaders);
@@ -1053,7 +1066,7 @@ async function handleUploadImage(request, env, corsHeaders) {
 
     const formData = await request.formData();
     const file = formData.get('image');
-    
+
     if (!file) {
       return jsonResponse({ error: 'No image file provided' }, 400, corsHeaders);
     }
@@ -1083,10 +1096,10 @@ async function handleUploadImage(request, env, corsHeaders) {
       size: file.size,
       createdAt: timestamp,
     };
-    
+
     storage.images.push(imageInfo);
     storage.totalSize += file.size;
-    
+
     await env.CLIPBOARD_KV.put(userStorageKey, JSON.stringify(storage), {
       expirationTtl: 30 * 24 * 60 * 60,
     });
@@ -1107,12 +1120,12 @@ async function handleUploadImage(request, env, corsHeaders) {
 // 获取存储信息
 async function handleGetStorageInfo(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   let sessionId = url.searchParams.get('session');
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
   if (sessionId) {
     const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
@@ -1129,7 +1142,7 @@ async function handleGetStorageInfo(request, env, corsHeaders) {
     const userStorageKey = `user_storage:${userId}`;
     const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
     const storage = storageData ? JSON.parse(storageData) : { totalSize: 0, images: [] };
-    
+
     const MAX_STORAGE = 200 * 1024 * 1024;
 
     // 转换旧图片 URL 为新的 Worker 代理 URL
@@ -1160,12 +1173,12 @@ async function handleGetStorageInfo(request, env, corsHeaders) {
 async function handleDeleteImage(request, env, corsHeaders) {
   const url = new URL(request.url);
   const imageId = url.pathname.split('/').pop();
-  
+
   let sessionId = url.searchParams.get('session');
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
   if (sessionId) {
     const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
@@ -1181,14 +1194,14 @@ async function handleDeleteImage(request, env, corsHeaders) {
   try {
     const userStorageKey = `user_storage:${userId}`;
     const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
-    
+
     if (!storageData) {
       return jsonResponse({ error: 'Image not found' }, 404, corsHeaders);
     }
 
     const storage = JSON.parse(storageData);
     const imageIndex = storage.images.findIndex(img => img.id === imageId);
-    
+
     if (imageIndex === -1) {
       return jsonResponse({ error: 'Image not found' }, 404, corsHeaders);
     }
@@ -1198,7 +1211,7 @@ async function handleDeleteImage(request, env, corsHeaders) {
 
     storage.totalSize -= image.size;
     storage.images.splice(imageIndex, 1);
-    
+
     await env.CLIPBOARD_KV.put(userStorageKey, JSON.stringify(storage), {
       expirationTtl: 30 * 24 * 60 * 60,
     });
@@ -1214,13 +1227,13 @@ async function handleDeleteImage(request, env, corsHeaders) {
 async function handleGetImage(request, env, corsHeaders) {
   const url = new URL(request.url);
   const imageId = url.pathname.split('/').pop();
-  
+
   // 从 URL 参数获取用户信息（用于验证权限）
   let sessionId = url.searchParams.get('session');
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
   if (sessionId) {
     const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
@@ -1232,12 +1245,12 @@ async function handleGetImage(request, env, corsHeaders) {
   try {
     // 构建图片文件名（需要 userId 前缀）
     let fileName;
-    
+
     if (userId) {
       // 已登录用户，从自己存储中查找
       const userStorageKey = `user_storage:${userId}`;
       const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
-      
+
       if (storageData) {
         const storage = JSON.parse(storageData);
         const image = storage.images.find(img => img.id === imageId);
@@ -1246,7 +1259,7 @@ async function handleGetImage(request, env, corsHeaders) {
         }
       }
     }
-    
+
     // 如果没有找到，尝试直接访问（用于分享的图片）
     if (!fileName) {
       // 从所有用户存储中查找（简化处理，实际可能需要更好的方案）
@@ -1259,7 +1272,7 @@ async function handleGetImage(request, env, corsHeaders) {
 
     // 从 R2 获取图片
     const object = await env.IMAGES_BUCKET.get(fileName);
-    
+
     if (!object) {
       return jsonResponse({ error: 'Image not found' }, 404, corsHeaders);
     }
@@ -1284,7 +1297,7 @@ async function handleGetImage(request, env, corsHeaders) {
 async function findImageFileName(env, imageId) {
   // 列出所有用户存储键
   const list = await env.CLIPBOARD_KV.list({ prefix: 'user_storage:' });
-  
+
   for (const key of list.keys) {
     const storageData = await env.CLIPBOARD_KV.get(key.name);
     if (storageData) {
@@ -1295,6 +1308,6 @@ async function findImageFileName(env, imageId) {
       }
     }
   }
-  
+
   return null;
 }
