@@ -260,8 +260,16 @@ async function undoDelete() {
   }
 }
 
+// 检测内容是否为 HTTP/HTTPS 链接
+function isHttpLink(content: string): boolean {
+  return /^https?:\/\/.+/i.test(content.trim())
+}
+
 // 长按处理
 function handleLongPress(event: TouchEvent | MouseEvent, item: any, index: number) {
+  // 阻止默认的上下文菜单（特别是在移动端）
+  event.preventDefault()
+  
   console.log('[LongPress] 显示菜单', item)
   contextMenuItem.value = { ...item, index }
   
@@ -281,15 +289,13 @@ function handleLongPress(event: TouchEvent | MouseEvent, item: any, index: numbe
   showContextMenu.value = true
 }
 
-// 关闭菜单
-function closeContextMenu() {
-  showContextMenu.value = false
-  contextMenuItem.value = null
-}
-
 // 处理 body 区域的长按
+let touchStartTime = 0
+
 function handleBodyTouchStart(event: TouchEvent, item: any, index: number) {
   if (isMultiSelectMode.value) return
+  
+  touchStartTime = Date.now()
   
   longPressTimer.value = window.setTimeout(() => {
     handleLongPress(event, item, index)
@@ -298,9 +304,28 @@ function handleBodyTouchStart(event: TouchEvent, item: any, index: number) {
 }
 
 function handleBodyTouchEnd(event: TouchEvent, item: any, index: number) {
+  const touchDuration = Date.now() - touchStartTime
+  
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
+  }
+  
+  // 如果触摸时间小于长按阈值，且不是多选模式，不执行任何操作（不弹出菜单）
+  if (touchDuration < LONG_PRESS_DURATION && !isMultiSelectMode.value) {
+    // 短按不执行任何操作
+    console.log('[TouchEnd] 短按，不弹出菜单')
+  }
+}
+
+// 处理图标点击
+function handleIconClick(item: any) {
+  if (isHttpLink(item.content)) {
+    // 如果是链接，在新标签页打开
+    window.open(item.content.trim(), '_blank')
+  } else {
+    // 如果不是链接，复制内容
+    copyClipboard(item.content)
   }
 }
 defineExpose({
@@ -639,10 +664,10 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
               <div class="clipboard-item-row" :class="{ 'is-multi-select': isMultiSelectMode }"
                 @contextmenu.prevent="handleLongPress($event, item, index)"
               >
-                <div class="clipboard-icon-wrapper" @click.stop="copyClipboard(item.content)">
+                <div class="clipboard-icon-wrapper" @click.stop="handleIconClick(item)">
                   <mdui-icon 
                     class="clipboard-icon" 
-                    :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
+                    :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : (isHttpLink(item.content) ? 'link' : 'content_paste'))"
                   ></mdui-icon>
                 </div>
                 <div class="clipboard-body"
@@ -669,6 +694,16 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
           :style="{ position: 'fixed', left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px', 'z-index': '10001' }"
           @click.stop
         >
+          <!-- 如果是链接，显示在新标签页打开选项 -->
+          <mdui-menu-item v-if="contextMenuItem && isHttpLink(contextMenuItem.content)" @click="window.open(contextMenuItem.content.trim(), '_blank'); closeContextMenu()">
+            <mdui-icon slot="icon" name="open_in_new"></mdui-icon>
+            在新标签页打开
+          </mdui-menu-item>
+          <!-- 复制选项（所有情况都显示） -->
+          <mdui-menu-item @click="copyClipboard(contextMenuItem?.content); closeContextMenu()">
+            <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+            复制
+          </mdui-menu-item>
           <mdui-menu-item @click="deleteClipboard(contextMenuItem?.index, true); closeContextMenu()">
             <mdui-icon slot="icon" name="delete" style="color: var(--mdui-color-error)"></mdui-icon>
             <span style="color: var(--mdui-color-error)">删除</span>
