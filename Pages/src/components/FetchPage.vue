@@ -304,7 +304,8 @@ function closeNotFoundDialog() {
         <p class="subtitle">输入5位提取码或分享码，立即获取分享的内容</p>
 
         <mdui-text-field
-          v-model="fetchCode"
+          :value="fetchCode"
+          @input="(e: any) => { console.log('[FetchPage] 输入事件:', e.target.value); fetchCode = e.target.value }"
           label="5位提取码 / 分享码"
           maxlength="5"
           class="code-input"
