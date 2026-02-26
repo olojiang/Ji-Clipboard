@@ -376,33 +376,36 @@ function closeNotFoundDialog() {
         <h2 class="title">获取分享</h2>
         <p class="subtitle">输入5位提取码或分享码，立即获取分享的内容</p>
 
-        <input
-          v-model="fetchCodeModel"
-          placeholder="5位提取码 / 分享码"
-          maxlength="5"
-          class="code-input-native"
-          style="
-            width: 100%;
-            padding: 12px 16px;
-            font-size: 16px;
-            border: 1px solid var(--mdui-color-outline);
-            border-radius: 8px;
-            background: var(--mdui-color-surface);
-            color: var(--mdui-color-on-surface);
-            box-sizing: border-box;
-            margin-bottom: 16px;
-          "
-        />
+        <div style="display: flex; gap: 12px; align-items: stretch;">
+          <input
+            v-model="fetchCodeModel"
+            placeholder="5位提取码 / 分享码"
+            maxlength="5"
+            class="code-input-native"
+            style="
+              flex: 1;
+              padding: 12px 16px;
+              font-size: 16px;
+              border: 1px solid var(--mdui-color-outline);
+              border-radius: 8px;
+              background: var(--mdui-color-surface);
+              color: var(--mdui-color-on-surface);
+              box-sizing: border-box;
+            "
+            @keyup.enter="handleFetch"
+          />
 
-        <mdui-button
-          variant="filled"
-          class="fetch-btn"
-          :loading="isFetching"
-          @click="handleFetch"
-        >
-          <mdui-icon slot="icon" name="arrow_forward"></mdui-icon>
-          获取
-        </mdui-button>
+          <mdui-button
+            variant="filled"
+            class="fetch-btn"
+            :loading="isFetching"
+            @click="handleFetch"
+            style="--mdui-button-height: 48px;"
+          >
+            <mdui-icon slot="icon" name="arrow_forward"></mdui-icon>
+            获取
+          </mdui-button>
+        </div>
       </mdui-card>
     </div>
 
