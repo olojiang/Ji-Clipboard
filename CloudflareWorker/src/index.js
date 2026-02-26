@@ -1133,10 +1133,22 @@ async function handleGetStorageInfo(request, env, corsHeaders) {
     
     const MAX_STORAGE = 200 * 1024 * 1024;
 
+    // 转换旧图片 URL 为新的 Worker 代理 URL
+    const updatedImages = storage.images.map(img => {
+      // 如果 URL 是旧的 R2 格式，转换为新的 Worker 代理格式
+      if (img.url && img.url.includes('r2.dev')) {
+        return {
+          ...img,
+          url: `${env.WORKER_URL}/api/images/${img.id}`
+        };
+      }
+      return img;
+    });
+
     return jsonResponse({
       totalSize: storage.totalSize,
       maxSize: MAX_STORAGE,
-      images: storage.images,
+      images: updatedImages,
     }, 200, corsHeaders);
 
   } catch (error) {
