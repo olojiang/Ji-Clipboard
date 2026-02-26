@@ -154,7 +154,7 @@ async function uploadImages() {
     }
 
     emit('add-images', uploadedUrls)
-    resetForm()
+    handleClose()
   } catch (error: any) {
     uploadError.value = error.message || '上传失败，请重试'
   } finally {
@@ -170,7 +170,7 @@ function addTextClipboard() {
   }
 
   emit('add-text', textInput.value.trim())
-  resetForm()
+  handleClose()
 }
 
 // 重置表单
