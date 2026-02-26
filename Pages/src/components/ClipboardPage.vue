@@ -588,13 +588,13 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             <!-- 内容层 -->
             <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
               <mdui-list-item
-                :headline="item.content.substring(0, 50) + (item.content.length > 50 ? '...' : '')"
                 :description="formatDate(item.createdAt)"
                 :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
               >
+                <div class="clipboard-content" slot="headline">{{ item.content }}</div>
                 <div v-if="!isMultiSelectMode" slot="end" style="display: flex; gap: 8px;">
                   <mdui-button-icon icon="content_copy" @click.stop="copyClipboard(item.content)" title="复制"></mdui-button-icon>
-                  <mdui-button-icon icon="delete" @click.stop="deleteClipboard(index)" title="删除"></mdui-button-icon>
+                  <mdui-button-icon icon="delete" @click.stop="deleteClipboard(index, false)" title="删除"></mdui-button-icon>
                 </div>
               </mdui-list-item>
             </div>
@@ -771,6 +771,17 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 .swipe-content mdui-list-item {
   background: white !important;
   --mdui-color-surface: white;
+}
+
+.clipboard-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+  max-height: 4.5em;
 }
 
 .fab-add {
