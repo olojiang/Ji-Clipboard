@@ -37,6 +37,8 @@ const authLoading = ref(true)
 // Toast 提示
 const toastMessage = ref('')
 const showToast = ref(false)
+const showUndoButton = ref(false)
+const clipboardPageRef = ref<InstanceType<typeof ClipboardPage> | null>(null)
 
 // 页面加载时获取用户信息
 onMounted(async () => {
@@ -131,14 +133,25 @@ function closeMySharesPage() {
 }
 
 // 显示 Toast
-function showToastMessage(message: string) {
+function showToastMessage(message: string, showUndo: boolean = false) {
   toastMessage.value = message
+  showUndoButton.value = showUndo
   showToast.value = true
 }
 
 // 隐藏 Toast
 function hideToast() {
   showToast.value = false
+  showUndoButton.value = false
+}
+
+// 处理撤回操作
+function handleUndo() {
+  hideToast()
+  // 调用 ClipboardPage 的 undoDelete 方法
+  if (clipboardPageRef.value) {
+    clipboardPageRef.value.undoDelete()
+  }
 }
 </script>
 
@@ -162,6 +175,7 @@ function hideToast() {
 
       <!-- 剪贴板页面 -->
       <ClipboardPage
+        ref="clipboardPageRef"
         v-else-if="currentTab === 'clipboard'"
         :user="user"
         :auth-loading="authLoading"
@@ -198,7 +212,9 @@ function hideToast() {
     <Toast
       :message="toastMessage"
       :show="showToast"
+      :show-undo="showUndoButton"
       @hide="hideToast"
+      @undo="handleUndo"
     />
 
     <!-- 底部导航栏 -->

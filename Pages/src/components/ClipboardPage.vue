@@ -30,6 +30,9 @@ const clipboardsError = ref('')
 const isMultiSelectMode = ref(false)
 const selectedItems = ref<Set<number>>(new Set())
 
+// 删除恢复状态
+const lastDeletedItem = ref<{ content: string; createdAt: number; index: number } | null>(null)
+
 // 长按和滑动状态
 const longPressTimer = ref<number | null>(null)
 const LONG_PRESS_DURATION = 800
@@ -170,9 +173,16 @@ function copyClipboard(content: string) {
 }
 
 // 删除剪贴板
-async function deleteClipboard(index: number) {
+async function deleteClipboard(index: number, showUndoToast: boolean = true) {
   const item = myClipboards.value[index]
   if (!item) return
+
+  // 保存被删除的数据用于恢复
+  lastDeletedItem.value = {
+    content: item.content,
+    createdAt: item.createdAt,
+    index: index
+  }
 
   try {
     const sessionId = localStorage.getItem('session_id')
@@ -194,12 +204,60 @@ async function deleteClipboard(index: number) {
     }
 
     await fetchMyClipboards()
-    emit('showToast', '已删除')
+    
+    // 显示带撤回按钮的提示
+    if (showUndoToast) {
+      emit('showToast', '已删除', true)
+    } else {
+      emit('showToast', '已删除')
+    }
   } catch (error) {
     console.error('删除剪贴板失败:', error)
     emit('showToast', '删除失败')
+    lastDeletedItem.value = null
   }
 }
+
+// 恢复删除的剪贴板
+async function undoDelete() {
+  if (!lastDeletedItem.value) return
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard-items`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        content: lastDeletedItem.value.content
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    lastDeletedItem.value = null
+    await fetchMyClipboards()
+    emit('showToast', '已撤回')
+  } catch (error) {
+    console.error('恢复剪贴板失败:', error)
+    emit('showToast', '撤回失败')
+  }
+}
+
+// 暴露方法给父组件
+defineExpose({
+  undoDelete
+})
 
 // 切换选择状态
 function toggleSelection(index: number) {
@@ -400,7 +458,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   // 如果左滑超过阈值，执行删除操作，同时播放回弹动画
   if (item.swipeLeft) {
     console.log('[TouchEnd] 左滑超过阈值，执行删除并播放回弹动画')
-    deleteClipboard(index)
+    deleteClipboard(index, true)
   }
 
   // 惯性滑动
