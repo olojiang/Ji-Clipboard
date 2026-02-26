@@ -114,17 +114,26 @@ function copyShareUrl() {
 
 // 复制分享码
 function copyShareCode() {
-  if (!shareResult.value) return
+  console.log('[ShareDialog] copyShareCode 被调用')
+  if (!shareResult.value) {
+    console.log('[ShareDialog] shareResult 为空')
+    return
+  }
+  
+  console.log('[ShareDialog] 复制分享码:', shareResult.value.id)
   
   navigator.clipboard.writeText(shareResult.value.id).then(() => {
-    // 可以显示一个提示
-  }).catch(() => {
+    console.log('[ShareDialog] 复制成功')
+    alert('分享码已复制: ' + shareResult.value.id)
+  }).catch((err) => {
+    console.log('[ShareDialog] 复制失败:', err)
     const input = document.createElement('input')
     input.value = shareResult.value!.id
     document.body.appendChild(input)
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
+    alert('分享码已复制: ' + shareResult.value.id)
   })
 }
 
