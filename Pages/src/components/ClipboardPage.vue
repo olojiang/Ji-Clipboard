@@ -587,11 +587,11 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             
             <!-- 内容层 -->
             <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
-              <mdui-list-item class="clipboard-list-item" :class="{ 'is-multi-select': isMultiSelectMode }">
-                <mdui-icon slot="icon" :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"></mdui-icon>
-                <span slot="headline" class="clipboard-content">{{ item.content }}</span>
-                <div slot="description">{{ formatDate(item.createdAt) }}</div>
-              </mdui-list-item>
+              <mdui-list-item
+                :headline="item.content"
+                :description="formatDate(item.createdAt)"
+                :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
+              ></mdui-list-item>
             </div>
           </div>
         </mdui-list>
@@ -766,26 +766,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 .swipe-content mdui-list-item {
   background: white !important;
   --mdui-color-surface: white;
-}
-
-.clipboard-content {
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.5;
-  max-height: 4.5em;
-  color: var(--mdui-color-on-surface);
-  font-size: 16px;
-}
-
-.clipboard-list-item {
-  width: 100%;
-}
-
-.clipboard-list-item.is-multi-select {
-  background: var(--mdui-color-primary-container) !important;
-  --mdui-color-surface: var(--mdui-color-primary-container);
 }
 
 .fab-add {
