@@ -923,39 +923,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   color: var(--mdui-color-on-surface-variant);
 }
 
-/* 长按菜单 */
-.context-menu-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.context-menu {
-  position: fixed;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  min-width: 200px;
-  max-width: 300px;
-  overflow: hidden;
-  transform: translate(-50%, -100%);
-  margin-top: -10px;
-}
-
-.context-menu-title {
-  padding: 12px 16px;
-  font-size: 14px;
-  color: var(--mdui-color-on-surface-variant);
-  border-bottom: 1px solid var(--mdui-color-outline-variant);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .fab-add {
   position: fixed;
   right: 16px;
