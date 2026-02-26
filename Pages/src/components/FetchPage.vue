@@ -38,6 +38,15 @@ const renderedFetchedContent = computed(() => {
   return md.render(fetchedContent.value)
 })
 
+// 用于 v-model 的计算属性
+const fetchCodeModel = computed({
+  get: () => fetchCode.value,
+  set: (val: string) => { 
+    fetchCode.value = val
+    console.log('[FetchPage] fetchCode 更新:', val)
+  }
+})
+
 // 页面加载时检查是否有待处理的分享码
 onMounted(() => {
   const pendingShareCode = localStorage.getItem('pending_share_code')
@@ -304,8 +313,7 @@ function closeNotFoundDialog() {
         <p class="subtitle">输入5位提取码或分享码，立即获取分享的内容</p>
 
         <mdui-text-field
-          :value="fetchCode"
-          @change="(e: any) => { console.log('[FetchPage] change事件:', e.target.value); fetchCode.value = e.target.value }"
+          v-model="fetchCodeModel"
           label="5位提取码 / 分享码"
           maxlength="5"
           class="code-input"
