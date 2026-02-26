@@ -771,10 +771,12 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 .clipboard-content {
   white-space: pre-wrap;
   word-break: break-word;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  overflow: hidden;
   line-height: 1.5;
   max-height: 4.5em;
   color: var(--mdui-color-on-surface);
