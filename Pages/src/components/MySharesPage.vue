@@ -5,7 +5,7 @@ const props = defineProps<{
   baseUrl: string
 }>()
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['showToast'])
 
 // API 基础地址
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
@@ -181,11 +181,14 @@ function openShare(shareId: string) {
 
 <template>
   <div class="my-shares-page">
-    <!-- 顶部导航栏 -->
-    <mdui-top-app-bar class="app-bar">
-      <mdui-button-icon icon="arrow_back" @click="$emit('close')"></mdui-button-icon>
-      <mdui-top-app-bar-title>我的分享</mdui-top-app-bar-title>
-    </mdui-top-app-bar>
+    <!-- 顶部标题 -->
+    <div class="page-header">
+      <h2 class="page-title">我的分享</h2>
+      <mdui-button variant="text" @click="fetchMyShares" :loading="mySharesLoading">
+        <mdui-icon slot="icon" name="refresh"></mdui-icon>
+        刷新
+      </mdui-button>
+    </div>
 
     <!-- 主内容区 -->
     <main class="main-content">
@@ -318,30 +321,23 @@ function openShare(shareId: string) {
 
 <style scoped>
 .my-shares-page {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--mdui-color-surface-container-low);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.app-bar {
-  flex-shrink: 0;
-}
-
-.main-content {
-  flex: 1;
-  padding: 16px;
-  max-width: 900px;
-  margin: 0 auto;
-  width: 100%;
+  height: 100%;
   overflow-y: auto;
-  box-sizing: border-box;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 8px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--mdui-color-on-surface);
 }
 
 .loading-state, .error-state, .empty-state {

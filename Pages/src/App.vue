@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import ClipboardPage from './components/ClipboardPage.vue'
-import SharePage from './components/SharePage.vue'
 import FetchPage from './components/FetchPage.vue'
-import ProfilePage from './components/ProfilePage.vue'
 import MySharesPage from './components/MySharesPage.vue'
+import ProfilePage from './components/ProfilePage.vue'
 import Toast from './components/Toast.vue'
 
 // API 基础地址
@@ -15,9 +14,6 @@ const BASE_URL = `${window.location.origin}${window.location.pathname.replace(/\
 
 // 当前页面标签
 const currentTab = ref('clipboard')
-
-// 我的分享页面显示状态
-const showMySharesPage = ref(false)
 
 // 用户信息
 const user = ref<{
@@ -56,9 +52,7 @@ onMounted(async () => {
   } else {
     // 检查 URL hash
     const hash = window.location.hash.replace('#', '')
-    if (hash === 'my-shares') {
-      showMySharesPage.value = true
-    } else if (hash && ['clipboard', 'fetch', 'share', 'profile'].includes(hash)) {
+    if (hash && ['clipboard', 'fetch', 'my-shares', 'profile'].includes(hash)) {
       currentTab.value = hash
     }
   }
@@ -128,20 +122,7 @@ async function logout() {
 // 切换标签页
 function switchTab(tab: string) {
   currentTab.value = tab
-  showMySharesPage.value = false
   window.history.replaceState({}, '', `#${tab}`)
-}
-
-// 显示我的分享页面
-function showMySharesPageFn() {
-  showMySharesPage.value = true
-  window.history.replaceState({}, '', '#my-shares')
-}
-
-// 关闭我的分享页面
-function closeMySharesPage() {
-  showMySharesPage.value = false
-  window.history.replaceState({}, '', `#${currentTab.value}`)
 }
 
 // 显示 Toast
@@ -178,17 +159,10 @@ function handleUndo() {
 
     <!-- 主内容区 -->
     <main class="main-content">
-      <!-- 我的分享页面 -->
-      <MySharesPage
-        v-if="showMySharesPage"
-        :base-url="BASE_URL"
-        @close="closeMySharesPage"
-      />
-
       <!-- 剪贴板页面 -->
       <ClipboardPage
         ref="clipboardPageRef"
-        v-else-if="currentTab === 'clipboard'"
+        v-if="currentTab === 'clipboard'"
         :user="user"
         :auth-loading="authLoading"
         @show-toast="showToastMessage"
@@ -200,11 +174,9 @@ function handleUndo() {
         @show-toast="showToastMessage"
       />
 
-      <!-- 分享页面 -->
-      <SharePage
-        v-else-if="currentTab === 'share'"
-        :user="user"
-        :auth-loading="authLoading"
+      <!-- 我的分享页面 -->
+      <MySharesPage
+        v-else-if="currentTab === 'my-shares'"
         :base-url="BASE_URL"
         @show-toast="showToastMessage"
       />
@@ -216,7 +188,6 @@ function handleUndo() {
         :auth-loading="authLoading"
         @login="loginWithGitHub"
         @logout="logout"
-        @show-my-shares="showMySharesPageFn"
       />
     </main>
 
@@ -237,7 +208,7 @@ function handleUndo() {
     >
       <mdui-navigation-bar-item icon="content_paste" value="clipboard">剪贴板</mdui-navigation-bar-item>
       <mdui-navigation-bar-item icon="download" value="fetch">获取</mdui-navigation-bar-item>
-      <mdui-navigation-bar-item icon="share" value="share">分享</mdui-navigation-bar-item>
+      <mdui-navigation-bar-item icon="share" value="my-shares">我的分享</mdui-navigation-bar-item>
       <mdui-navigation-bar-item icon="person" value="profile">我的</mdui-navigation-bar-item>
     </mdui-navigation-bar>
   </div>
