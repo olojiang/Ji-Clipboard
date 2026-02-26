@@ -589,7 +589,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
               <mdui-list-item class="clipboard-list-item" :class="{ 'is-multi-select': isMultiSelectMode }">
                 <mdui-icon slot="icon" :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"></mdui-icon>
-                <div slot="headline" class="clipboard-content">{{ item.content }}</div>
+                <span slot="headline" class="clipboard-content">{{ item.content }}</span>
                 <div slot="description">{{ formatDate(item.createdAt) }}</div>
               </mdui-list-item>
             </div>
