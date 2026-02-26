@@ -950,10 +950,22 @@ async function handleGetShare(request, env, corsHeaders) {
   }
   // public: 任何人可访问，无需检查
 
+  // 推断类型（兼容旧分享）
+  let shareType = share.type;
+  if (!shareType) {
+    if (share.content && share.content.startsWith('[') && share.content.includes('http')) {
+      shareType = 'image';
+    } else if (share.fileInfo) {
+      shareType = 'file';
+    } else {
+      shareType = 'text';
+    }
+  }
+
   return jsonResponse({
     id: share.id,
     content: share.content,
-    type: share.type || 'text',
+    type: shareType,
     fileInfo: share.fileInfo || null,
     visibility: share.visibility,
     ownerLogin: share.ownerLogin,
