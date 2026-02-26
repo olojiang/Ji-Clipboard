@@ -663,9 +663,10 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 
       <!-- 长按菜单 - 使用 MDUI Menu -->
       <mdui-menu
-        :open="showContextMenu"
+        v-if="showContextMenu"
+        :open="true"
         @close="closeContextMenu"
-        :style="{ position: 'fixed', left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+        :style="{ position: 'fixed', left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px', 'z-index': '10000' }"
       >
         <mdui-menu-item v-if="contextMenuItem" disabled>
           <span style="font-size: 12px; color: var(--mdui-color-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; display: block;">
