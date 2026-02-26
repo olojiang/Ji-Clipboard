@@ -70,6 +70,9 @@ export default {
         if (request.method === 'DELETE') {
           return handleDeleteClipboardItem(request, env, corsHeaders);
         }
+        if (request.method === 'PUT') {
+          return handleRestoreClipboardItem(request, env, corsHeaders);
+        }
       }
 
       return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
@@ -598,7 +601,70 @@ async function generateUniqueCode(env, maxAttempts = 10) {
   throw new Error('Failed to generate unique code');
 }
 
-// 辅助函数：生成随机字符串
+// 恢复剪贴板项目到指定位置
+async function handleRestoreClipboardItem(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  // 获取索引
+  const index = parseInt(url.pathname.split('/').pop());
+  if (isNaN(index)) {
+    return jsonResponse({ error: 'Invalid index' }, 400, corsHeaders);
+  }
+
+  const body = await request.json();
+  const { content, createdAt } = body;
+
+  if (!content || !content.trim()) {
+    return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
+  }
+
+  // 从 KV 获取现有的剪贴板列表
+  const userClipboardKey = `user_clipboard:${userId}`;
+  const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
+  const items = existingData ? JSON.parse(existingData) : [];
+  
+  // 在指定位置插入项目
+  const itemToRestore = {
+    content: content.trim(),
+    createdAt: createdAt || Date.now(),
+  };
+  
+  // 确保索引在有效范围内
+  const insertIndex = Math.min(Math.max(0, index), items.length);
+  items.splice(insertIndex, 0, itemToRestore);
+  
+  // 保存回 KV（7天过期）
+  await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
+    expirationTtl: 7 * 24 * 60 * 60,
+  });
+
+  return jsonResponse({
+    success: true,
+    item: itemToRestore,
+  }, 200, corsHeaders);
+}
 function generateRandomString(length) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
