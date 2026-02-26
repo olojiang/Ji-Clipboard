@@ -27,6 +27,10 @@ const showPermissionDialog = ref(false)
 const permissionErrorTitle = ref('')
 const permissionErrorMessage = ref('')
 
+// 分享不存在弹窗状态
+const showNotFoundDialog = ref(false)
+const notFoundMessage = ref('')
+
 // 计算属性：渲染获取到的内容
 const renderedFetchedContent = computed(() => {
   if (!fetchedContent.value) return ''
@@ -117,7 +121,9 @@ async function handleFetchShare(shareCode: string) {
     console.log('[FetchPage] 响应状态:', response.status)
 
     if (response.status === 404) {
-      fetchError.value = '分享不存在或已过期'
+      console.log('[FetchPage] 分享不存在')
+      notFoundMessage.value = '该分享不存在或已被删除。'
+      showNotFoundDialog.value = true
       isFetching.value = false
       return
     }
@@ -141,7 +147,9 @@ async function handleFetchShare(shareCode: string) {
     }
 
     if (response.status === 410) {
-      fetchError.value = '分享已过期'
+      console.log('[FetchPage] 分享已过期')
+      notFoundMessage.value = '该分享已过期。'
+      showNotFoundDialog.value = true
       isFetching.value = false
       return
     }
@@ -193,6 +201,12 @@ function closePermissionDialog() {
   showPermissionDialog.value = false
   permissionErrorTitle.value = ''
   permissionErrorMessage.value = ''
+}
+
+// 关闭不存在弹窗
+function closeNotFoundDialog() {
+  showNotFoundDialog.value = false
+  notFoundMessage.value = ''
 }
 </script>
 
@@ -268,6 +282,24 @@ function closePermissionDialog() {
         </div>
       </div>
       <mdui-button slot="action" variant="filled" @click="closePermissionDialog">确定</mdui-button>
+    </mdui-dialog>
+
+    <!-- 分享不存在弹窗 -->
+    <mdui-dialog
+      :open="showNotFoundDialog"
+      @close="closeNotFoundDialog"
+      headline="分享不存在"
+      style="max-width: 400px;"
+    >
+      <div style="padding: 16px 0;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
+          <p style="margin: 0; font-size: 14px; color: var(--mdui-color-on-surface-variant);">
+            {{ notFoundMessage }}
+          </p>
+        </div>
+      </div>
+      <mdui-button slot="action" variant="filled" @click="closeNotFoundDialog">确定</mdui-button>
     </mdui-dialog>
   </div>
 </template>
