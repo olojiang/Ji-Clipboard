@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>查看剪贴板 - 云剪贴板</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #6750A4;
+      --surface-color: #FEF7FF;
+      --on-surface-color: #1D1B20;
+      --surface-variant: #E7E0EC;
+      --on-surface-variant: #49454F;
+      --outline-color: #79747E;
+      --error-color: #B3261E;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--surface-color);
+      color: var(--on-surface-color);
+      min-height: 100vh;
+    }
+    
+    .app-bar {
+      background: var(--surface-color);
+      border-bottom: 1px solid var(--surface-variant);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .app-bar .icon {
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    
+    .app-bar h1 {
+      font-size: 20px;
+      font-weight: 600;
+      flex: 1;
+    }
+    
+    .app-bar .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--primary-color);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: 20px;
+      transition: background 0.2s;
+    }
+    
+    .app-bar .back-btn:hover {
+      background: rgba(103, 80, 164, 0.08);
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    
+    .loading-state,
+    .error-state,
+    .empty-state {
+      text-align: center;
+      padding: 64px 24px;
+    }
+    
+    .loading-state .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--surface-variant);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 24px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .error-state .icon,
+    .empty-state .icon {
+      font-size: 64px;
+      color: var(--error-color);
+      margin-bottom: 16px;
+    }
+    
+    .empty-state .icon {
+      color: var(--outline-color);
+    }
+    
+    .error-state h2,
+    .empty-state h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .error-state p,
+    .empty-state p {
+      color: var(--on-surface-variant);
+      margin-bottom: 24px;
+    }
+    
+    .content-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .content-header {
+      padding: 20px 24px;
+      background: var(--surface-variant);
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    
+    .content-header .code {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .content-header .code-label {
+      font-size: 12px;
+      color: var(--on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .content-header .code-value {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--primary-color);
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+    
+    .content-header .meta {
+      font-size: 12px;
+      color: var(--on-surface-variant);
+    }
+    
+    .content-body {
+      padding: 32px;
+      line-height: 1.8;
+    }
+    
+    /* Markdown Styles */
+    .content-body h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin: 0 0 24px 0;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--surface-variant);
+    }
+    
+    .content-body h2 {
+      font-size: 24px;
+      font-weight: 600;
+      margin: 32px 0 16px 0;
+      color: var(--primary-color);
+    }
+    
+    .content-body h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 24px 0 12px 0;
+    }
+    
+    .content-body p {
+      margin: 0 0 16px 0;
+      color: var(--on-surface-color);
+    }
+    
+    .content-body ul,
+    .content-body ol {
+      margin: 0 0 16px 0;
+      padding-left: 32px;
+    }
+    
+    .content-body li {
+      margin: 8px 0;
+    }
+    
+    .content-body code {
+      background: #f5f5f5;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+      font-size: 0.9em;
+      color: #d73a49;
+    }
+    
+    .content-body pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: 12px;
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+    
+    .content-body pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    
+    .content-body a {
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+    
+    .content-body a:hover {
+      text-decoration: underline;
+    }
+    
+    .content-body blockquote {
+      border-left: 4px solid var(--primary-color);
+      margin: 20px 0;
+      padding: 16px 24px;
+      background: var(--surface-variant);
+      border-radius: 0 8px 8px 0;
+      font-style: italic;
+    }
+    
+    .content-body hr {
+      border: none;
+      border-top: 1px solid var(--surface-variant);
+      margin: 32px 0;
+    }
+    
+    .content-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    .content-body th,
+    .content-body td {
+      border: 1px solid var(--surface-variant);
+      padding: 12px 16px;
+      text-align: left;
+    }
+    
+    .content-body th {
+      background: var(--surface-variant);
+      font-weight: 600;
+    }
+    
+    .content-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+    
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #7c6ab8;
+    }
+    
+    .btn-secondary {
+      background: var(--surface-variant);
+      color: var(--primary-color);
+    }
+    
+    .btn-secondary:hover {
+      background: #dcd3e3;
+    }
+    
+    @media (max-width: 600px) {
+      .container {
+        padding: 16px;
+      }
+      
+      .content-body {
+        padding: 20px;
+      }
+      
+      .content-body h1 {
+        font-size: 24px;
+      }
+      
+      .content-body h2 {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-bar">
+    <span class="icon material-icons">cloud</span>
+    <h1>云剪贴板</h1>
+    <a href="./" class="back-btn">
+      <span class="material-icons">arrow_back</span>
+      返回首页
+    </a>
+  </div>
+  
+  <div class="container">
+    <div id="content">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>正在加载内容...</p>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const API_BASE = 'https://ji-clipboard-worker.olojiang.workers.dev';
+    
+    // 获取 URL 参数
+    function getQueryParam(name) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(name);
+    }
+    
+    // 格式化日期
+    function formatDate(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    
+    // 显示加载状态
+    function showLoading() {
+      document.getElementById('content').innerHTML = `
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>正在加载内容...</p>
+        </div>
+      `;
+    }
+    
+    // 显示错误状态
+    function showError(message) {
+      document.getElementById('content').innerHTML = `
+        <div class="error-state">
+          <div class="icon material-icons">error_outline</div>
+          <h2>加载失败</h2>
+          <p>${message}</p>
+          <div class="actions">
+            <a href="./" class="btn btn-primary">
+              <span class="material-icons">home</span>
+              返回首页
+            </a>
+          </div>
+        </div>
+      `;
+    }
+    
+    // 显示空状态
+    function showEmpty() {
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <div class="icon material-icons">inbox</div>
+          <h2>未找到内容</h2>
+          <p>请检查提取码是否正确，或内容已过期</p>
+          <div class="actions">
+            <a href="./" class="btn btn-primary">
+              <span class="material-icons">home</span>
+              返回首页
+            </a>
+          </div>
+        </div>
+      `;
+    }
+    
+    // 显示内容
+    function showContent(data) {
+      const createdAt = formatDate(data.createdAt);
+      const expiresAt = formatDate(data.expiresAt);
+      const htmlContent = marked.parse(data.content);
+      
+      document.getElementById('content').innerHTML = `
+        <div class="content-card">
+          <div class="content-header">
+            <div class="code">
+              <span class="code-label">提取码</span>
+              <span class="code-value">${data.code}</span>
+            </div>
+            <div class="meta">
+              创建于 ${createdAt} · 过期于 ${expiresAt}
+            </div>
+          </div>
+          <div class="content-body">
+            ${htmlContent}
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary" onclick="copyContent()">
+            <span class="material-icons">content_copy</span>
+            复制原文
+          </button>
+          <a href="./" class="btn btn-primary">
+            <span class="material-icons">home</span>
+            返回首页
+          </a>
+        </div>
+      `;
+      
+      // 保存原文用于复制
+      window.originalContent = data.content;
+    }
+    
+    // 复制原文
+    function copyContent() {
+      if (window.originalContent) {
+        navigator.clipboard.writeText(window.originalContent).then(() => {
+          alert('原文已复制到剪贴板！');
+        }).catch(() => {
+          // 降级方案
+          const input = document.createElement('input');
+          input.value = window.originalContent;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand('copy');
+          document.body.removeChild(input);
+          alert('原文已复制到剪贴板！');
+        });
+      }
+    }
+    
+    // 加载剪贴板内容
+    async function loadClipboard() {
+      const code = getQueryParam('code');
+      
+      if (!code) {
+        showEmpty();
+        return;
+      }
+      
+      showLoading();
+      
+      try {
+        // 使用 query parameter 而不是 path parameter
+        const response = await fetch(`${API_BASE}/api/clipboard?code=${code}`, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (response.status === 404) {
+          showEmpty();
+          return;
+        }
+        
+        if (response.status === 410) {
+          showError('内容已过期');
+          return;
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        showContent(data);
+      } catch (error) {
+        console.error('加载失败:', error);
+        showError('网络错误，请稍后重试');
+      }
+    }
+    
+    // 页面加载时获取内容
+    loadClipboard();
+  </script>
+</body>
+</html>
