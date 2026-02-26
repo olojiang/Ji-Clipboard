@@ -75,6 +75,25 @@ export default {
         }
       }
 
+      // 分享 API
+      if (path === '/api/shares') {
+        if (request.method === 'GET') {
+          return handleGetMySharesList(request, env, corsHeaders);
+        }
+        if (request.method === 'POST') {
+          return handleCreateShare(request, env, corsHeaders);
+        }
+      }
+
+      if (path.startsWith('/api/shares/')) {
+        if (request.method === 'GET') {
+          return handleGetShare(request, env, corsHeaders);
+        }
+        if (request.method === 'DELETE') {
+          return handleDeleteShare(request, env, corsHeaders);
+        }
+      }
+
       return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
     } catch (error) {
       console.error('Worker error:', error);
@@ -692,4 +711,270 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
       ...extraHeaders,
     },
   });
+}
+
+// ==================== 分享功能 API ====================
+
+// 创建分享
+async function handleCreateShare(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+  let userLogin = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      const user = JSON.parse(sessionData);
+      userId = user.userId;
+      userLogin = user.login;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  const body = await request.json();
+  const { content, visibility = 'public', expireHours = 24 } = body;
+
+  if (!content || !content.trim()) {
+    return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
+  }
+
+  // 生成分享ID
+  const shareId = generateRandomString(16);
+  
+  // 计算过期时间
+  const now = Date.now();
+  const expiresAt = now + expireHours * 60 * 60 * 1000;
+
+  // 创建分享数据
+  const shareData = {
+    id: shareId,
+    content: content.trim(),
+    visibility, // 'public' | 'authenticated' | 'private'
+    ownerId: userId,
+    ownerLogin: userLogin,
+    createdAt: now,
+    expiresAt,
+  };
+
+  // 保存到 KV
+  await env.CLIPBOARD_KV.put(`share:${shareId}`, JSON.stringify(shareData), {
+    expirationTtl: expireHours * 60 * 60,
+  });
+
+  // 保存到用户的分享列表
+  const userSharesKey = `user_shares_list:${userId}`;
+  const existingShares = await env.CLIPBOARD_KV.get(userSharesKey);
+  const shares = existingShares ? JSON.parse(existingShares) : [];
+  shares.push({
+    id: shareId,
+    content: content.trim().substring(0, 100) + (content.length > 100 ? '...' : ''),
+    visibility,
+    createdAt: now,
+    expiresAt,
+  });
+  await env.CLIPBOARD_KV.put(userSharesKey, JSON.stringify(shares), {
+    expirationTtl: 30 * 24 * 60 * 60, // 30天
+  });
+
+  return jsonResponse({
+    success: true,
+    share: {
+      id: shareId,
+      content: content.trim(),
+      visibility,
+      createdAt: now,
+      expiresAt,
+      shareUrl: `${env.FRONTEND_URL}/share/${shareId}`,
+    },
+  }, 200, corsHeaders);
+}
+
+// 获取分享内容
+async function handleGetShare(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const shareId = url.pathname.split('/').pop();
+
+  if (!shareId) {
+    return jsonResponse({ error: 'Share ID is required' }, 400, corsHeaders);
+  }
+
+  // 获取分享数据
+  const shareData = await env.CLIPBOARD_KV.get(`share:${shareId}`);
+  if (!shareData) {
+    return jsonResponse({ error: 'Share not found or expired' }, 404, corsHeaders);
+  }
+
+  const share = JSON.parse(shareData);
+
+  // 检查是否过期
+  if (Date.now() > share.expiresAt) {
+    await env.CLIPBOARD_KV.delete(`share:${shareId}`);
+    return jsonResponse({ error: 'Share expired' }, 410, corsHeaders);
+  }
+
+  // 权限检查
+  if (share.visibility === 'private') {
+    // 仅自己可查看，需要登录并验证身份
+    let sessionId = url.searchParams.get('session');
+    if (!sessionId) {
+      sessionId = getCookie(request, 'session_id');
+    }
+    
+    let userId = null;
+    if (sessionId) {
+      const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+      if (sessionData) {
+        userId = JSON.parse(sessionData).userId;
+      }
+    }
+
+    if (!userId || userId !== share.ownerId) {
+      return jsonResponse({ error: 'Unauthorized' }, 403, corsHeaders);
+    }
+  } else if (share.visibility === 'authenticated') {
+    // 登录用户可查看
+    let sessionId = url.searchParams.get('session');
+    if (!sessionId) {
+      sessionId = getCookie(request, 'session_id');
+    }
+    
+    let userId = null;
+    if (sessionId) {
+      const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+      if (sessionData) {
+        userId = JSON.parse(sessionData).userId;
+      }
+    }
+
+    if (!userId) {
+      return jsonResponse({ error: 'Login required' }, 401, corsHeaders);
+    }
+  }
+  // public: 任何人可访问，无需检查
+
+  return jsonResponse({
+    id: share.id,
+    content: share.content,
+    visibility: share.visibility,
+    ownerLogin: share.ownerLogin,
+    createdAt: share.createdAt,
+    expiresAt: share.expiresAt,
+  }, 200, corsHeaders);
+}
+
+// 获取我的分享列表
+async function handleGetMySharesList(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  // 获取用户的分享列表
+  const userSharesKey = `user_shares_list:${userId}`;
+  const sharesData = await env.CLIPBOARD_KV.get(userSharesKey);
+  const shares = sharesData ? JSON.parse(sharesData) : [];
+  
+  // 过滤掉已过期的分享
+  const now = Date.now();
+  const validShares = shares.filter(s => s.expiresAt > now);
+  
+  // 如果有过期分享被过滤，更新列表
+  if (validShares.length !== shares.length) {
+    await env.CLIPBOARD_KV.put(userSharesKey, JSON.stringify(validShares), {
+      expirationTtl: 30 * 24 * 60 * 60,
+    });
+  }
+
+  return jsonResponse({
+    shares: validShares,
+  }, 200, corsHeaders);
+}
+
+// 删除分享
+async function handleDeleteShare(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const shareId = url.pathname.split('/').pop();
+  
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+  
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  // 获取分享数据验证所有权
+  const shareData = await env.CLIPBOARD_KV.get(`share:${shareId}`);
+  if (!shareData) {
+    return jsonResponse({ error: 'Share not found' }, 404, corsHeaders);
+  }
+
+  const share = JSON.parse(shareData);
+  if (share.ownerId !== userId) {
+    return jsonResponse({ error: 'Unauthorized' }, 403, corsHeaders);
+  }
+
+  // 删除分享
+  await env.CLIPBOARD_KV.delete(`share:${shareId}`);
+
+  // 从用户分享列表中移除
+  const userSharesKey = `user_shares_list:${userId}`;
+  const sharesData = await env.CLIPBOARD_KV.get(userSharesKey);
+  if (sharesData) {
+    const shares = JSON.parse(sharesData);
+    const updatedShares = shares.filter(s => s.id !== shareId);
+    await env.CLIPBOARD_KV.put(userSharesKey, JSON.stringify(updatedShares), {
+      expirationTtl: 30 * 24 * 60 * 60,
+    });
+  }
+
+  return jsonResponse({
+    success: true,
+  }, 200, corsHeaders);
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import ShareDialog from './ShareDialog.vue'
 
 const props = defineProps<{
   user: { loggedIn: boolean }
@@ -47,6 +48,10 @@ const SWIPE_THRESHOLD = 80
 const TAP_THRESHOLD = 10
 let hasVibrated = false
 let isScrolling = false // 是否正在垂直滚动
+
+// 分享弹窗状态
+const showShareDialog = ref(false)
+const shareContent = ref('')
 
 // 惯性滑动状态
 const velocity = ref(0)
@@ -294,6 +299,13 @@ function handleLongPress(event: TouchEvent | MouseEvent, item: any, index: numbe
 function closeContextMenu() {
   showContextMenu.value = false
   contextMenuItem.value = null
+}
+
+// 打开分享弹窗
+function openShareDialog(content: string) {
+  closeContextMenu()
+  shareContent.value = content
+  showShareDialog.value = true
 }
 
 // 处理 body 区域的长按
@@ -745,6 +757,11 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
           <mdui-icon slot="icon" name="content_copy"></mdui-icon>
           复制
         </mdui-menu-item>
+        <!-- 分享选项 -->
+        <mdui-menu-item @click="openShareDialog(contextMenuItem?.content)">
+          <mdui-icon slot="icon" name="share"></mdui-icon>
+          分享
+        </mdui-menu-item>
         <!-- 如果是链接，显示在新标签页打开选项 -->
         <mdui-menu-item v-if="contextMenuItem && isHttpLink(contextMenuItem.content)" @click="window.open(contextMenuItem.content.trim(), '_blank'); closeContextMenu()">
           <mdui-icon slot="icon" name="open_in_new"></mdui-icon>
@@ -755,6 +772,14 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
           <span style="color: var(--mdui-color-error)">删除</span>
         </mdui-menu-item>
       </mdui-menu>
+
+      <!-- 分享弹窗 -->
+      <ShareDialog
+        :open="showShareDialog"
+        :content="shareContent"
+        @close="showShareDialog = false"
+        @share-created="emit('showToast', '分享创建成功')"
+      />
 
       <!-- 添加剪贴板弹窗 -->
       <mdui-dialog
