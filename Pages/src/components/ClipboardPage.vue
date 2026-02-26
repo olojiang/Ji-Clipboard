@@ -397,6 +397,12 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
     selectedItems.value.add(index)
   }
 
+  // 如果左滑超过阈值，执行删除操作，同时播放回弹动画
+  if (item.swipeLeft) {
+    console.log('[TouchEnd] 左滑超过阈值，执行删除并播放回弹动画')
+    deleteClipboard(index)
+  }
+
   // 惯性滑动
   const inertia = () => {
     if (Math.abs(velocity.value) < 0.5) {
@@ -509,10 +515,10 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             @touchend="handleTouchEnd($event, item, index)"
             @click="isMultiSelectMode && toggleSelection(index)"
           >
-            <!-- 左滑背景（分享）-->
+            <!-- 左滑背景（删除）-->
             <div v-if="!isMultiSelectMode" class="swipe-bg swipe-bg-left">
-              <mdui-icon name="share" style="font-size: 24px; color: white;"></mdui-icon>
-              <span>分享</span>
+              <mdui-icon name="delete" style="font-size: 24px; color: white;"></mdui-icon>
+              <span>删除</span>
             </div>
             
             <!-- 右滑背景（多选）-->
@@ -679,7 +685,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 
 .swipe-bg-left {
   left: 0;
-  background: #6750A4;
+  background: #F44336;
   color: white;
   justify-content: flex-end;
 }
