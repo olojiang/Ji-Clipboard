@@ -291,16 +291,37 @@ function handleLongPress(event: TouchEvent | MouseEvent, item: any, index: numbe
 
 // 处理 body 区域的长按
 let touchStartTime = 0
+let touchStartX = 0
+let touchStartY = 0
+const TOUCH_MOVE_THRESHOLD = 10 // 移动超过10px取消长按
 
 function handleBodyTouchStart(event: TouchEvent, item: any, index: number) {
   if (isMultiSelectMode.value) return
   
+  const touch = event.touches[0]
   touchStartTime = Date.now()
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
   
   longPressTimer.value = window.setTimeout(() => {
     handleLongPress(event, item, index)
     longPressTimer.value = null
   }, LONG_PRESS_DURATION)
+}
+
+function handleBodyTouchMove(event: TouchEvent) {
+  if (!longPressTimer.value) return
+  
+  const touch = event.touches[0]
+  const deltaX = Math.abs(touch.clientX - touchStartX)
+  const deltaY = Math.abs(touch.clientY - touchStartY)
+  
+  // 如果移动超过阈值，取消长按
+  if (deltaX > TOUCH_MOVE_THRESHOLD || deltaY > TOUCH_MOVE_THRESHOLD) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+    console.log('[TouchMove] 移动超过阈值，取消长按')
+  }
 }
 
 function handleBodyTouchEnd(event: TouchEvent, item: any, index: number) {
@@ -671,6 +692,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
                 ></mdui-button-icon>
                 <div class="clipboard-body"
                   @touchstart="handleBodyTouchStart($event, item, index)"
+                  @touchmove="handleBodyTouchMove($event)"
                   @touchend="handleBodyTouchEnd($event, item, index)"
                 >
                   <div class="clipboard-text">{{ item.content }}</div>
