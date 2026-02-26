@@ -201,21 +201,30 @@ function openShare(shareId: string) {
 
 <style scoped>
 .my-shares-page {
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--mdui-color-surface-container-low);
-  padding-bottom: 80px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .app-bar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  flex-shrink: 0;
 }
 
 .main-content {
+  flex: 1;
   padding: 16px;
   max-width: 900px;
   margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .loading-state, .error-state, .empty-state {
