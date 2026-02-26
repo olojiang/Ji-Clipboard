@@ -80,8 +80,8 @@ async function fetchStorageInfo() {
   }
 }
 
-// 处理文件选择
-function handleFileSelect(event: Event) {
+// 处理图片选择
+function handleImageSelect(event: Event) {
   const input = event.target as HTMLInputElement
   if (!input.files) return
 
@@ -169,7 +169,7 @@ async function uploadImages() {
   }
 }
 
-// 处理文件选择
+// 处理文件选择（文件上传专用）
 function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement
   if (!input.files || input.files.length === 0) return
@@ -350,7 +350,7 @@ function switchTab(tab: string) {
               accept="image/*"
               multiple
               style="display: none;"
-              @change="handleFileSelect"
+              @change="handleImageSelect"
             >
           </label>
           <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-top: 8px;">
