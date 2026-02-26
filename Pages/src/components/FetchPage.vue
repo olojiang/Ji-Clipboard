@@ -360,7 +360,7 @@ function closeNotFoundDialog() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--mdui-color-surface-container-low);
+  background: var(--mdui-color-surface);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -398,7 +398,7 @@ function closeNotFoundDialog() {
 
 .share-content-card {
   padding: 20px;
-  min-height: calc(100% - 40px);
+  height: auto;
 }
 
 .share-overlay-footer {
