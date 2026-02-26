@@ -233,22 +233,28 @@ function handleUndo() {
 
 <style>
 .app {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--mdui-color-surface-container-low);
-  padding-bottom: 80px;
-  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .app-bar {
   position: sticky;
   top: 0;
   z-index: 100;
+  flex-shrink: 0;
 }
 
 .main-content {
   padding: 16px;
   max-width: 900px;
   margin: 0 auto;
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .section {
