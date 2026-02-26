@@ -51,7 +51,10 @@ onMounted(() => {
 
 // 处理获取剪贴板（5位提取码）
 async function handleFetch() {
+  console.log('[FetchPage] handleFetch 被调用，输入值:', fetchCode.value)
+  
   if (!fetchCode.value || fetchCode.value.length !== 5) {
+    console.log('[FetchPage] 输入无效:', fetchCode.value)
     fetchError.value = '请输入5位提取码'
     return
   }
@@ -61,15 +64,20 @@ async function handleFetch() {
   fetchedContent.value = ''
 
   try {
-    const response = await fetch(`${API_BASE}/api/clipboard?code=${fetchCode.value}`, {
+    const clipboardUrl = `${API_BASE}/api/clipboard?code=${fetchCode.value}`
+    console.log('[FetchPage] 尝试获取剪贴板:', clipboardUrl)
+    
+    const response = await fetch(clipboardUrl, {
       headers: {
         'Accept': 'application/json'
       }
     })
+    
+    console.log('[FetchPage] 剪贴板响应状态:', response.status)
 
     if (response.status === 404) {
       // 可能是分享码，尝试获取分享内容
-      console.log('[FetchPage] 提取码未找到，尝试作为分享码获取')
+      console.log('[FetchPage] 提取码未找到，尝试作为分享码获取:', fetchCode.value)
       await handleFetchShare(fetchCode.value)
       return
     }
@@ -85,6 +93,7 @@ async function handleFetch() {
     }
 
     const data = await response.json()
+    console.log('[FetchPage] 剪贴板获取成功:', data)
     // 跳转到查看页面
     window.location.href = `./view.html?code=${fetchCode.value}`
   } catch (error) {
@@ -97,7 +106,7 @@ async function handleFetch() {
 
 // 处理获取分享内容
 async function handleFetchShare(shareCode: string) {
-  console.log('[FetchPage] 开始获取分享内容:', shareCode)
+  console.log('[FetchPage] handleFetchShare 被调用，分享码:', shareCode)
   fetchError.value = ''
   isFetching.value = true
   fetchedContent.value = ''
@@ -109,8 +118,9 @@ async function handleFetchShare(shareCode: string) {
     if (sessionId) {
       url += `?session=${sessionId}`
     }
-    console.log('[FetchPage] 请求URL:', url)
+    console.log('[FetchPage] 分享API请求URL:', url)
 
+    console.log('[FetchPage] 开始发送请求...')
     const response = await fetch(url, {
       credentials: 'include',
       headers: {
@@ -118,10 +128,11 @@ async function handleFetchShare(shareCode: string) {
       }
     })
 
-    console.log('[FetchPage] 响应状态:', response.status)
+    console.log('[FetchPage] 分享API响应状态:', response.status)
+    console.log('[FetchPage] 分享API响应状态文本:', response.statusText)
 
     if (response.status === 404) {
-      console.log('[FetchPage] 分享不存在')
+      console.log('[FetchPage] 分享不存在 (404)')
       notFoundMessage.value = '该分享不存在或已被删除。'
       showNotFoundDialog.value = true
       isFetching.value = false
@@ -129,7 +140,7 @@ async function handleFetchShare(shareCode: string) {
     }
 
     if (response.status === 401) {
-      console.log('[FetchPage] 需要登录')
+      console.log('[FetchPage] 需要登录 (401)')
       permissionErrorTitle.value = '需要登录'
       permissionErrorMessage.value = '此分享需要登录后才能查看，请先登录。'
       showPermissionDialog.value = true
@@ -138,7 +149,7 @@ async function handleFetchShare(shareCode: string) {
     }
 
     if (response.status === 403) {
-      console.log('[FetchPage] 无权查看')
+      console.log('[FetchPage] 无权查看 (403)')
       permissionErrorTitle.value = '无权查看'
       permissionErrorMessage.value = '您没有权限查看此分享内容。'
       showPermissionDialog.value = true
@@ -147,7 +158,7 @@ async function handleFetchShare(shareCode: string) {
     }
 
     if (response.status === 410) {
-      console.log('[FetchPage] 分享已过期')
+      console.log('[FetchPage] 分享已过期 (410)')
       notFoundMessage.value = '该分享已过期。'
       showNotFoundDialog.value = true
       isFetching.value = false
@@ -155,18 +166,26 @@ async function handleFetchShare(shareCode: string) {
     }
 
     if (!response.ok) {
+      console.log('[FetchPage] 请求失败，状态码:', response.status)
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
     const data = await response.json()
-    console.log('[FetchPage] 获取成功:', data)
+    console.log('[FetchPage] 分享API获取成功，数据:', data)
+    
+    if (!data.content) {
+      console.log('[FetchPage] 警告: 返回数据中没有 content 字段')
+    }
+    
     fetchedContent.value = data.content
     fetchedCode.value = shareCode
+    console.log('[FetchPage] 内容已设置，长度:', data.content?.length)
     emit('showToast', '分享内容已获取')
   } catch (error) {
-    console.error('[FetchPage] 获取分享失败:', error)
+    console.error('[FetchPage] 获取分享失败，错误:', error)
     fetchError.value = '获取分享失败，请稍后重试'
   } finally {
+    console.log('[FetchPage] handleFetchShare 结束，isFetching:', isFetching.value)
     isFetching.value = false
   }
 }
