@@ -251,12 +251,16 @@ function openShare(shareId: string) {
       <div v-if="selectedShare" style="padding: 16px 0;">
         <!-- 分享码 -->
         <div style="margin-bottom: 16px;">
-          <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 4px;">
+          <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 8px;">
             分享码
           </div>
-          <mdui-chip icon="share" variant="outlined" style="font-family: monospace; font-weight: 600;">
-            {{ selectedShare.id }}
-          </mdui-chip>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <mdui-chip icon="tag" variant="outlined" style="font-family: monospace; font-weight: 600;">
+              {{ selectedShare.id }}
+            </mdui-chip>
+            <mdui-button-icon icon="content_copy" @click="copyShareCode(selectedShare.id)" title="复制分享码">
+            </mdui-button-icon>
+          </div>
         </div>
 
         <!-- 内容 -->

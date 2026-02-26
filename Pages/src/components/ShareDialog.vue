@@ -112,6 +112,22 @@ function copyShareUrl() {
   })
 }
 
+// 复制分享码
+function copyShareCode() {
+  if (!shareResult.value) return
+  
+  navigator.clipboard.writeText(shareResult.value.id).then(() => {
+    // 可以显示一个提示
+  }).catch(() => {
+    const input = document.createElement('input')
+    input.value = shareResult.value!.id
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+  })
+}
+
 // 复制分享信息（包含链接和说明）
 function copyShareInfo() {
   if (!shareResult.value) return
@@ -120,6 +136,7 @@ function copyShareInfo() {
   const expireText = expireOptions.find(e => e.value === selectedExpire.value)?.label
   
   const info = `分享内容：${props.content.substring(0, 50)}${props.content.length > 50 ? '...' : ''}
+分享码：${shareResult.value.id}
 链接：${shareResult.value.shareUrl}
 权限：${visibilityText}
 有效期：${expireText}
@@ -247,8 +264,12 @@ function handleClose() {
           </div>
         </div>
 
-        <div style="display: flex; gap: 8px;">
-          <mdui-button variant="filled" @click="copyShareUrl" style="flex: 1;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <mdui-button variant="filled" @click="copyShareCode" style="flex: 1;">
+            <mdui-icon slot="icon" name="tag"></mdui-icon>
+            复制分享码
+          </mdui-button>
+          <mdui-button variant="outlined" @click="copyShareUrl" style="flex: 1;">
             <mdui-icon slot="icon" name="link"></mdui-icon>
             复制链接
           </mdui-button>

@@ -243,11 +243,11 @@ function closeNotFoundDialog() {
     <div v-else class="section">
       <mdui-card class="fetch-card">
         <h2 class="title">获取分享</h2>
-        <p class="subtitle">输入5位提取码，立即获取分享的内容</p>
+        <p class="subtitle">输入5位提取码或分享码，立即获取分享的内容</p>
 
         <mdui-text-field
           v-model="fetchCode"
-          label="5位提取码"
+          label="5位提取码 / 分享码"
           maxlength="5"
           class="code-input"
           :error="!!fetchError"
@@ -261,7 +261,7 @@ function closeNotFoundDialog() {
           @click="handleFetch"
         >
           <mdui-icon slot="icon" name="arrow_forward"></mdui-icon>
-          提取
+          获取
         </mdui-button>
       </mdui-card>
     </div>
