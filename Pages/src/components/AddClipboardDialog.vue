@@ -5,11 +5,11 @@ const props = defineProps<{
   open: boolean
 }>()
 
-const emit = defineEmits(['close', 'add-text', 'add-images'])
+const emit = defineEmits(['close', 'add-text', 'add-images', 'add-file'])
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
 
-// 类型选择：text 或 image
+// 类型选择：text、image 或 file
 const activeTab = ref('text')
 
 // 文本输入
@@ -23,11 +23,18 @@ const isUploading = ref(false)
 const uploadError = ref('')
 const uploadProgress = ref(0)
 
+// 文件上传
+const selectedFile = ref<File | null>(null)
+const isFileUploading = ref(false)
+const fileUploadError = ref('')
+const fileUploadProgress = ref(0)
+
 // 存储空间信息
 const storageInfo = ref<{
   totalSize: number
   maxSize: number
   images: any[]
+  files: any[]
 } | null>(null)
 
 // 计算已用空间百分比
@@ -162,6 +169,80 @@ async function uploadImages() {
   }
 }
 
+// 处理文件选择
+function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files || input.files.length === 0) return
+
+  const file = input.files[0]
+  const maxSize = 50 * 1024 * 1024 // 50MB
+
+  if (file.size > maxSize) {
+    fileUploadError.value = `文件 ${file.name} 超过 50MB 限制`
+    input.value = ''
+    return
+  }
+
+  // 检查剩余空间
+  if (file.size > remainingSpace.value) {
+    fileUploadError.value = '存储空间不足'
+    input.value = ''
+    return
+  }
+
+  selectedFile.value = file
+  fileUploadError.value = ''
+  input.value = ''
+}
+
+// 移除已选文件
+function removeFile() {
+  selectedFile.value = null
+  fileUploadError.value = ''
+}
+
+// 上传文件
+async function uploadFile() {
+  if (!selectedFile.value) {
+    fileUploadError.value = '请选择一个文件'
+    return
+  }
+
+  isFileUploading.value = true
+  fileUploadError.value = ''
+  fileUploadProgress.value = 0
+
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/upload-file`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || '上传失败')
+    }
+
+    const data = await response.json()
+    emit('add-file', data.file)
+    handleClose()
+  } catch (error: any) {
+    fileUploadError.value = error.message || '上传失败，请重试'
+  } finally {
+    isFileUploading.value = false
+  }
+}
+
 // 添加文本剪贴板
 function addTextClipboard() {
   if (!textInput.value || !textInput.value.trim()) {
@@ -182,6 +263,10 @@ function resetForm() {
   imagePreviewUrls.value = []
   uploadError.value = ''
   uploadProgress.value = 0
+  selectedFile.value = null
+  isFileUploading.value = false
+  fileUploadError.value = ''
+  fileUploadProgress.value = 0
   activeTab.value = 'text'
 }
 
@@ -194,7 +279,7 @@ function handleClose() {
 // 切换标签时获取存储信息
 function switchTab(tab: string) {
   activeTab.value = tab
-  if (tab === 'image') {
+  if (tab === 'image' || tab === 'file') {
     fetchStorageInfo()
   }
 }
@@ -218,6 +303,10 @@ function switchTab(tab: string) {
         <mdui-tab value="image">
           <mdui-icon name="image" style="margin-right: 8px;"></mdui-icon>
           图片
+        </mdui-tab>
+        <mdui-tab value="file">
+          <mdui-icon name="insert_drive_file" style="margin-right: 8px;"></mdui-icon>
+          文件
         </mdui-tab>
       </mdui-tabs>
 
@@ -298,6 +387,66 @@ function switchTab(tab: string) {
           {{ uploadError }}
         </div>
       </div>
+
+      <!-- 文件上传 -->
+      <div v-if="activeTab === 'file'">
+        <!-- 存储空间信息 -->
+        <div v-if="storageInfo" style="margin-bottom: 16px; padding: 12px; background: var(--mdui-color-surface-container); border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 14px;">存储空间</span>
+            <span style="font-size: 12px; color: var(--mdui-color-on-surface-variant);">
+              {{ formatFileSize(storageInfo.totalSize) }} / {{ formatFileSize(storageInfo.maxSize) }}
+            </span>
+          </div>
+          <mdui-linear-progress :value="storagePercent / 100" style="width: 100%;"></mdui-linear-progress>
+          <div v-if="storagePercent >= 90" style="margin-top: 4px; font-size: 12px; color: var(--mdui-color-error);">
+            存储空间不足，请删除一些文件
+          </div>
+        </div>
+
+        <!-- 文件选择 -->
+        <div v-if="!selectedFile" style="margin-bottom: 16px;">
+          <label class="upload-button">
+            <mdui-icon name="upload_file"></mdui-icon>
+            <span>选择文件</span>
+            <input
+              type="file"
+              style="display: none;"
+              @change="handleFileSelect"
+            >
+          </label>
+          <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-top: 8px;">
+            支持任意文件格式，单个文件不超过 50MB
+          </div>
+        </div>
+
+        <!-- 已选文件预览 -->
+        <div v-if="selectedFile" class="file-preview-item">
+          <mdui-icon name="insert_drive_file" style="font-size: 48px; color: var(--mdui-color-primary);"></mdui-icon>
+          <div class="file-info">
+            <span class="file-name">{{ selectedFile.name }}</span>
+            <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
+          </div>
+          <mdui-button-icon
+            icon="close"
+            class="remove-file-btn"
+            @click="removeFile"
+          ></mdui-button-icon>
+        </div>
+
+        <!-- 上传进度 -->
+        <div v-if="isFileUploading" style="margin-top: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span>上传中...{{ fileUploadProgress }}%</span>
+          </div>
+          <mdui-linear-progress :value="fileUploadProgress / 100" style="width: 100%;"></mdui-linear-progress>
+        </div>
+
+        <div v-if="fileUploadError" class="error-message" style="margin-top: 8px;">
+          <mdui-icon name="error" style="font-size: 16px;"></mdui-icon>
+          {{ fileUploadError }}
+        </div>
+      </div>
     </div>
 
     <div slot="action">
@@ -310,13 +459,22 @@ function switchTab(tab: string) {
         添加
       </mdui-button>
       <mdui-button
-        v-else
+        v-else-if="activeTab === 'image'"
         variant="filled"
         :loading="isUploading"
         :disabled="selectedImages.length === 0 || storagePercent >= 100"
         @click="uploadImages"
       >
         上传 {{ selectedImages.length > 0 ? `(${selectedImages.length}张)` : '' }}
+      </mdui-button>
+      <mdui-button
+        v-else-if="activeTab === 'file'"
+        variant="filled"
+        :loading="isFileUploading"
+        :disabled="!selectedFile || storagePercent >= 100"
+        @click="uploadFile"
+      >
+        上传文件
       </mdui-button>
     </div>
   </mdui-dialog>
@@ -420,5 +578,41 @@ function switchTab(tab: string) {
   background: rgba(0, 0, 0, 0.5);
   color: white;
   --mdui-button-icon-size: 28px;
+}
+
+.file-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--mdui-color-surface-container);
+  border-radius: 8px;
+  position: relative;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mdui-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  display: block;
+  font-size: 12px;
+  color: var(--mdui-color-on-surface-variant);
+  margin-top: 4px;
+}
+
+.remove-file-btn {
+  flex-shrink: 0;
 }
 </style>

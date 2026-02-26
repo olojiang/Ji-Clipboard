@@ -16,6 +16,14 @@ const storageInfo = ref<{
     size: number
     createdAt: number
   }>
+  files: Array<{
+    id: string
+    url: string
+    originalName: string
+    size: number
+    type: string
+    createdAt: number
+  }>
 } | null>(null)
 const isLoading = ref(false)
 const error = ref('')

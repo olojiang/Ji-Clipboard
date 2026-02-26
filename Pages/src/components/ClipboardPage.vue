@@ -20,6 +20,7 @@ const clipboardError = ref('')
 const showAddClipboardDialog = ref(false)
 const myClipboards = ref<Array<{
   content: string
+  type?: string
   createdAt: number
   swipeX?: number
   swipeLeft?: boolean
@@ -181,6 +182,47 @@ async function handleAddImageClipboard(imageUrls: string[]) {
   }
 }
 
+// 添加文件剪贴板
+async function handleAddFileClipboard(fileInfo: { id: string; url: string; originalName: string; size: number; type: string; createdAt: number }) {
+  clipboardError.value = ''
+  isAddingClipboard.value = true
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard-items`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        content: JSON.stringify(fileInfo),
+        type: 'file'
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    }
+
+    showAddClipboardDialog.value = false
+    await fetchMyClipboards()
+    emit('showToast', '文件添加成功')
+  } catch (error) {
+    console.error('添加文件剪贴板失败:', error)
+    clipboardError.value = (error as Error).message || '添加失败，请重试'
+  } finally {
+    isAddingClipboard.value = false
+  }
+}
+
 // 获取剪贴板列表
 async function fetchMyClipboards() {
   if (!props.user.loggedIn) return
@@ -233,9 +275,38 @@ function parseImageContent(content: string): string[] {
   return []
 }
 
-// 打开图片预览
-function openImagePreview(url: string) {
-  window.open(url, '_blank')
+// 解析文件内容
+function parseFileContent(content: string): { id: string; url: string; originalName: string; size: number; type: string; createdAt: number } | null {
+  console.log('[parseFileContent] 解析内容:', content)
+  try {
+    const parsed = JSON.parse(content)
+    console.log('[parseFileContent] 解析结果:', parsed)
+    if (parsed && typeof parsed === 'object' && parsed.id) {
+      return parsed
+    }
+  } catch (e) {
+    console.log('[parseFileContent] 解析失败:', e)
+  }
+  return null
+}
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// 下载文件
+function downloadFile(url: string, filename: string) {
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 // 复制剪贴板内容
@@ -793,7 +864,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
               >
                 <mdui-button-icon
                   class="clipboard-icon-btn"
-                  :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : (item.type === 'image' ? 'image' : (isHttpLink(item.content) ? 'link' : 'content_paste')))"
+                  :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : (item.type === 'image' ? 'image' : (item.type === 'file' ? 'insert_drive_file' : (isHttpLink(item.content) ? 'link' : 'content_paste'))))"
                   @click.stop="handleIconClick(item)"
                 ></mdui-button-icon>
                 <div class="clipboard-body"
@@ -811,6 +882,21 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
                         class="clipboard-image"
                         @click.stop="openImagePreview(url)"
                       >
+                    </div>
+                  </div>
+                  <!-- 文件类型 -->
+                  <div v-else-if="item.type === 'file'" class="clipboard-file">
+                    <div class="file-item" v-if="parseFileContent(item.content)">
+                      <mdui-icon name="insert_drive_file" style="font-size: 40px; color: var(--mdui-color-primary);"></mdui-icon>
+                      <div class="file-details">
+                        <span class="file-name">{{ parseFileContent(item.content)?.originalName }}</span>
+                        <span class="file-size">{{ formatFileSize(parseFileContent(item.content)?.size || 0) }}</span>
+                      </div>
+                      <mdui-button-icon
+                        icon="download"
+                        title="下载文件"
+                        @click.stop="downloadFile(parseFileContent(item.content)!.url, parseFileContent(item.content)!.originalName)"
+                      ></mdui-button-icon>
                     </div>
                   </div>
                   <!-- 文本类型 -->
@@ -871,6 +957,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
         @close="closeAddClipboardDialog"
         @add-text="handleAddTextClipboard"
         @add-images="handleAddImageClipboard"
+        @add-file="handleAddFileClipboard"
       />
     </template>
   </div>
@@ -1086,6 +1173,41 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   line-height: 1.5;
   color: var(--mdui-color-on-surface);
   font-size: 16px;
+}
+
+.clipboard-file {
+  width: 100%;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--mdui-color-surface-container);
+  border-radius: 8px;
+}
+
+.file-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-details .file-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mdui-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-details .file-size {
+  font-size: 12px;
+  color: var(--mdui-color-on-surface-variant);
 }
 
 .clipboard-date {
