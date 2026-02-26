@@ -39,6 +39,7 @@ const showContextMenu = ref(false)
 const contextMenuItem = ref<any>(null)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const longPressTimer = ref<number | null>(null)
+const bodyLongPressTimer = ref<number | null>(null) // 独立的长按定时器，用于内容区域
 const LONG_PRESS_DURATION = 800
 const swipeStartX = ref(0)
 const swipeStartY = ref(0)
@@ -309,14 +310,15 @@ function handleBodyTouchStart(event: TouchEvent, item: any, index: number) {
   touchStartX = touch.clientX
   touchStartY = touch.clientY
   
-  longPressTimer.value = window.setTimeout(() => {
+  // 使用独立的定时器，避免与滑动层的定时器冲突
+  bodyLongPressTimer.value = window.setTimeout(() => {
     handleLongPress(event, item, index)
-    longPressTimer.value = null
+    bodyLongPressTimer.value = null
   }, LONG_PRESS_DURATION)
 }
 
 function handleBodyTouchMove(event: TouchEvent) {
-  if (!longPressTimer.value) return
+  if (!bodyLongPressTimer.value) return
   
   const touch = event.touches[0]
   const deltaX = Math.abs(touch.clientX - touchStartX)
@@ -324,8 +326,8 @@ function handleBodyTouchMove(event: TouchEvent) {
   
   // 如果移动超过阈值，取消长按
   if (deltaX > TOUCH_MOVE_THRESHOLD || deltaY > TOUCH_MOVE_THRESHOLD) {
-    clearTimeout(longPressTimer.value)
-    longPressTimer.value = null
+    clearTimeout(bodyLongPressTimer.value)
+    bodyLongPressTimer.value = null
     console.log('[TouchMove] 移动超过阈值，取消长按')
   }
 }
@@ -333,9 +335,9 @@ function handleBodyTouchMove(event: TouchEvent) {
 function handleBodyTouchEnd(event: TouchEvent, item: any, index: number) {
   const touchDuration = Date.now() - touchStartTime
   
-  if (longPressTimer.value) {
-    clearTimeout(longPressTimer.value)
-    longPressTimer.value = null
+  if (bodyLongPressTimer.value) {
+    clearTimeout(bodyLongPressTimer.value)
+    bodyLongPressTimer.value = null
   }
   
   // 如果触摸时间小于长按阈值，且不是多选模式，不执行任何操作（不弹出菜单）
@@ -404,7 +406,7 @@ async function deleteSelected() {
   emit('showToast', `已删除 ${indices.length} 项`)
 }
 
-// 触摸开始
+// 触摸开始 - 仅处理滑动，不处理长按（长按由 handleBodyTouchStart 处理）
 function handleTouchStart(event: TouchEvent, item: any, index: number) {
   console.log('[TouchStart] index:', index, 'isMultiSelectMode:', isMultiSelectMode.value)
   
@@ -438,13 +440,8 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
     i.swipeRight = false
   })
   
-  longPressTimer.value = window.setTimeout(() => {
-    console.log('[TouchStart] 长按触发复制')
-    if (navigator.vibrate) navigator.vibrate(50)
-    copyClipboard(item.content)
-    longPressTimer.value = null
-    isScrolling = true // 长按后不处理滑动
-  }, LONG_PRESS_DURATION)
+  // 注意：长按功能已移至 handleBodyTouchStart，这里只处理滑动
+  // 避免在滑动层设置定时器，防止与内容层的长按菜单冲突
 }
 
 // 触摸移动
@@ -466,18 +463,31 @@ function handleTouchMove(event: TouchEvent, item: any) {
   // 如果垂直移动明显大于水平移动（2倍以上），认为是滚动
   if (totalDeltaY > totalDeltaX * 2 && totalDeltaY > TAP_THRESHOLD) {
     console.log('[TouchMove] 垂直滚动，取消长按')
+    // 取消滑动层的长按定时器（如果存在）
     if (longPressTimer.value) {
       clearTimeout(longPressTimer.value)
       longPressTimer.value = null
+    }
+    // 同时取消内容层的长按定时器，防止滑动时弹出菜单
+    if (bodyLongPressTimer.value) {
+      clearTimeout(bodyLongPressTimer.value)
+      bodyLongPressTimer.value = null
     }
     isScrolling = true
     return
   }
   
-  // 一旦开始水平移动，取消长按
-  if (longPressTimer.value && totalDeltaX > TAP_THRESHOLD) {
-    clearTimeout(longPressTimer.value)
-    longPressTimer.value = null
+  // 一旦开始水平移动，取消长按定时器
+  if (totalDeltaX > TAP_THRESHOLD) {
+    if (longPressTimer.value) {
+      clearTimeout(longPressTimer.value)
+      longPressTimer.value = null
+    }
+    // 同时取消内容层的长按定时器
+    if (bodyLongPressTimer.value) {
+      clearTimeout(bodyLongPressTimer.value)
+      bodyLongPressTimer.value = null
+    }
   }
   
   const currentTime = Date.now()
@@ -542,9 +552,16 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
     return
   }
 
+  // 清理滑动层的长按定时器
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
+  }
+  
+  // 清理内容层的长按定时器（触摸结束时如果还没触发长按，就取消它）
+  if (bodyLongPressTimer.value) {
+    clearTimeout(bodyLongPressTimer.value)
+    bodyLongPressTimer.value = null
   }
 
   // 如果右滑超过阈值，立即进入多选模式，同时播放回弹动画
