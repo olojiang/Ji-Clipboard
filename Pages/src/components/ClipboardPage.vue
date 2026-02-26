@@ -587,16 +587,11 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             
             <!-- 内容层 -->
             <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
-              <div class="clipboard-item" :class="{ 'is-multi-select': isMultiSelectMode }" mdui-ripple="no-clip" style="position: relative;">
-                <mdui-icon 
-                  class="clipboard-icon" 
-                  :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
-                ></mdui-icon>
-                <div class="clipboard-body">
-                  <div class="clipboard-content">{{ item.content }}</div>
-                  <div class="clipboard-date">{{ formatDate(item.createdAt) }}</div>
-                </div>
-              </div>
+              <mdui-list-item class="clipboard-list-item" :class="{ 'is-multi-select': isMultiSelectMode }">
+                <mdui-icon slot="icon" :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"></mdui-icon>
+                <div slot="headline" class="clipboard-content">{{ item.content }}</div>
+                <div slot="description">{{ formatDate(item.createdAt) }}</div>
+              </mdui-list-item>
             </div>
           </div>
         </mdui-list>
@@ -786,37 +781,13 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   font-size: 16px;
 }
 
-.clipboard-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 12px 16px;
-  background: white;
-  min-height: 48px;
+.clipboard-list-item {
+  width: 100%;
 }
 
-.clipboard-item.is-multi-select {
-  background: var(--mdui-color-primary-container);
-}
-
-.clipboard-icon {
-  font-size: 24px;
-  color: var(--mdui-color-on-surface-variant);
-  flex-shrink: 0;
-  margin-top: 4px;
-}
-
-.clipboard-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.clipboard-date {
-  font-size: 14px;
-  color: var(--mdui-color-on-surface-variant);
+.clipboard-list-item.is-multi-select {
+  background: var(--mdui-color-primary-container) !important;
+  --mdui-color-surface: var(--mdui-color-primary-container);
 }
 
 .fab-add {
