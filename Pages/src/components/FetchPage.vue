@@ -305,7 +305,7 @@ function closeNotFoundDialog() {
 
         <mdui-text-field
           :value="fetchCode"
-          @input="(e: any) => { console.log('[FetchPage] 输入事件:', e.target.value); fetchCode = e.target.value }"
+          @change="(e: any) => { console.log('[FetchPage] change事件:', e.target.value); fetchCode.value = e.target.value }"
           label="5位提取码 / 分享码"
           maxlength="5"
           class="code-input"
