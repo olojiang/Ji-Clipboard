@@ -21,6 +21,7 @@ const fetchError = ref('')
 const fetchedContent = ref('')
 const fetchedCode = ref('')
 const isShareContent = ref(false) // 标记是否是分享内容
+const shareExpiresAt = ref<number | null>(null) // 分享过期时间
 
 // 权限错误弹窗状态
 const showPermissionDialog = ref(false)
@@ -179,6 +180,7 @@ async function handleFetchShare(shareCode: string) {
     
     fetchedContent.value = data.content
     fetchedCode.value = shareCode
+    shareExpiresAt.value = data.expiresAt || null
     console.log('[FetchPage] 内容已设置，长度:', data.content?.length)
     emit('showToast', '分享内容已获取')
   } catch (error) {
@@ -196,6 +198,7 @@ function clearFetchedContent() {
   fetchedCode.value = ''
   fetchCode.value = ''
   isShareContent.value = false
+  shareExpiresAt.value = null
 }
 
 // 复制内容
@@ -212,6 +215,35 @@ function copyContent() {
     document.execCommand('copy')
     document.body.removeChild(input)
     emit('showToast', '内容已复制')
+  })
+}
+
+// 复制分享码
+function copyShareCode() {
+  if (!fetchedCode.value) return
+  
+  navigator.clipboard.writeText(fetchedCode.value).then(() => {
+    emit('showToast', '分享码已复制')
+  }).catch(() => {
+    const input = document.createElement('input')
+    input.value = fetchedCode.value
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+    emit('showToast', '分享码已复制')
+  })
+}
+
+// 格式化日期
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
   })
 }
 
@@ -235,9 +267,12 @@ function closeNotFoundDialog() {
     <div v-if="fetchedContent" class="share-overlay">
       <!-- 顶部栏 -->
       <div class="share-overlay-header">
-        <mdui-chip icon="tag" variant="outlined">
-          {{ isShareContent ? '分享码' : '提取码' }}: {{ fetchedCode }}
-        </mdui-chip>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <mdui-chip icon="tag" variant="outlined" style="font-family: monospace; font-weight: 600;">
+            {{ isShareContent ? '分享码' : '提取码' }}: {{ fetchedCode }}
+          </mdui-chip>
+          <mdui-button-icon icon="content_copy" @click="copyShareCode" title="复制分享码"></mdui-button-icon>
+        </div>
         <mdui-button-icon icon="close" @click="clearFetchedContent" class="close-btn"></mdui-button-icon>
       </div>
       
@@ -250,10 +285,15 @@ function closeNotFoundDialog() {
       
       <!-- 底部操作栏 -->
       <div class="share-overlay-footer">
-        <mdui-button variant="filled" @click="copyContent">
-          <mdui-icon slot="icon" name="content_copy"></mdui-icon>
-          复制内容
-        </mdui-button>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <mdui-button variant="filled" @click="copyContent">
+            <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+            复制内容
+          </mdui-button>
+          <span v-if="shareExpiresAt" style="font-size: 12px; color: var(--mdui-color-on-surface-variant);">
+            过期时间: {{ formatDate(shareExpiresAt) }}
+          </span>
+        </div>
       </div>
     </div>
 
