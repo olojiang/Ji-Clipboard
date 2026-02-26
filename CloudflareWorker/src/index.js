@@ -718,15 +718,15 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
 // 创建分享
 async function handleCreateShare(request, env, corsHeaders) {
   const url = new URL(request.url);
-  
+
   // 优先从 URL 参数获取 session
   let sessionId = url.searchParams.get('session');
-  
+
   // 如果没有，从 cookie 获取
   if (!sessionId) {
     sessionId = getCookie(request, 'session_id');
   }
-  
+
   let userId = null;
   let userLogin = null;
 
@@ -751,16 +751,16 @@ async function handleCreateShare(request, env, corsHeaders) {
     return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
   }
 
-  // 生成分享ID
-  const shareId = generateRandomString(16);
-  
+  // 生成5位分享码
+  const shareCode = await generateUniqueShareCode(env);
+
   // 计算过期时间
   const now = Date.now();
   const expiresAt = now + expireHours * 60 * 60 * 1000;
 
   // 创建分享数据
   const shareData = {
-    id: shareId,
+    id: shareCode,
     content: content.trim(),
     visibility, // 'public' | 'authenticated' | 'private'
     ownerId: userId,
@@ -770,7 +770,7 @@ async function handleCreateShare(request, env, corsHeaders) {
   };
 
   // 保存到 KV
-  await env.CLIPBOARD_KV.put(`share:${shareId}`, JSON.stringify(shareData), {
+  await env.CLIPBOARD_KV.put(`share:${shareCode}`, JSON.stringify(shareData), {
     expirationTtl: expireHours * 60 * 60,
   });
 
@@ -779,7 +779,7 @@ async function handleCreateShare(request, env, corsHeaders) {
   const existingShares = await env.CLIPBOARD_KV.get(userSharesKey);
   const shares = existingShares ? JSON.parse(existingShares) : [];
   shares.push({
-    id: shareId,
+    id: shareCode,
     content: content.trim().substring(0, 100) + (content.length > 100 ? '...' : ''),
     visibility,
     createdAt: now,
@@ -789,23 +789,44 @@ async function handleCreateShare(request, env, corsHeaders) {
     expirationTtl: 30 * 24 * 60 * 60, // 30天
   });
 
+  // 使用参数形式的分享链接（适配 GitHub Pages）
+  const shareUrl = `${env.FRONTEND_URL}/?share=${shareCode}`;
+
   return jsonResponse({
     success: true,
     share: {
-      id: shareId,
+      id: shareCode,
       content: content.trim(),
       visibility,
       createdAt: now,
       expiresAt,
-      shareUrl: `${env.FRONTEND_URL}/share/${shareId}`,
+      shareUrl: shareUrl,
     },
   }, 200, corsHeaders);
+}
+
+// 生成唯一的5位分享码
+async function generateUniqueShareCode(env, maxAttempts = 10) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const code = Math.floor(10000 + Math.random() * 90000).toString();
+    const exists = await env.CLIPBOARD_KV.get(`share:${code}`);
+    if (!exists) {
+      return code;
+    }
+  }
+  throw new Error('Failed to generate unique share code');
 }
 
 // 获取分享内容
 async function handleGetShare(request, env, corsHeaders) {
   const url = new URL(request.url);
-  const shareId = url.pathname.split('/').pop();
+  // 支持从 query 参数获取分享码（适配 GitHub Pages）
+  let shareId = url.searchParams.get('share');
+  
+  // 如果没有 query 参数，尝试从 path 获取
+  if (!shareId) {
+    shareId = url.pathname.split('/').pop();
+  }
 
   if (!shareId) {
     return jsonResponse({ error: 'Share ID is required' }, 400, corsHeaders);
