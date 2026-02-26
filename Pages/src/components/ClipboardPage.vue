@@ -957,6 +957,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   right: 0;
   bottom: 0;
   z-index: 10000;
+  background: transparent;
 }
 
 .fab-add {
