@@ -54,6 +54,8 @@ let isScrolling = false // 是否正在垂直滚动
 // 分享弹窗状态
 const showShareDialog = ref(false)
 const shareContent = ref('')
+const shareType = ref('text')
+const shareFileInfo = ref<any>(null)
 
 // 惯性滑动状态
 const velocity = ref(0)
@@ -444,9 +446,20 @@ function closeContextMenu() {
 }
 
 // 打开分享弹窗
-function openShareDialog(content: string) {
+function openShareDialog(item: any) {
   closeContextMenu()
-  shareContent.value = content
+  shareContent.value = item.content
+  shareType.value = item.type || 'text'
+  // 如果是文件类型，解析文件信息
+  if (item.type === 'file') {
+    try {
+      shareFileInfo.value = JSON.parse(item.content)
+    } catch (e) {
+      shareFileInfo.value = null
+    }
+  } else {
+    shareFileInfo.value = null
+  }
   showShareDialog.value = true
 }
 
@@ -928,7 +941,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
           复制
         </mdui-menu-item>
         <!-- 分享选项 -->
-        <mdui-menu-item @click="openShareDialog(contextMenuItem?.content)">
+        <mdui-menu-item @click="openShareDialog(contextMenuItem)">
           <mdui-icon slot="icon" name="share"></mdui-icon>
           分享
         </mdui-menu-item>
@@ -947,6 +960,8 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       <ShareDialog
         :open="showShareDialog"
         :content="shareContent"
+        :type="shareType"
+        :file-info="shareFileInfo"
         @close="showShareDialog = false"
         @share-created="emit('showToast', '分享创建成功')"
       />

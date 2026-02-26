@@ -806,7 +806,7 @@ async function handleCreateShare(request, env, corsHeaders) {
   }
 
   const body = await request.json();
-  const { content, visibility = 'public', expireHours = 24 } = body;
+  const { content, type = 'text', fileInfo, visibility = 'public', expireHours = 24 } = body;
 
   if (!content || !content.trim()) {
     return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
@@ -823,6 +823,8 @@ async function handleCreateShare(request, env, corsHeaders) {
   const shareData = {
     id: shareCode,
     content: content.trim(),
+    type: type || 'text',
+    fileInfo: fileInfo || null,
     visibility, // 'public' | 'authenticated' | 'private'
     ownerId: userId,
     ownerLogin: userLogin,
@@ -842,6 +844,7 @@ async function handleCreateShare(request, env, corsHeaders) {
   shares.push({
     id: shareCode,
     content: content.trim().substring(0, 100) + (content.length > 100 ? '...' : ''),
+    type: type || 'text',
     visibility,
     createdAt: now,
     expiresAt,
@@ -950,6 +953,8 @@ async function handleGetShare(request, env, corsHeaders) {
   return jsonResponse({
     id: share.id,
     content: share.content,
+    type: share.type || 'text',
+    fileInfo: share.fileInfo || null,
     visibility: share.visibility,
     ownerLogin: share.ownerLogin,
     createdAt: share.createdAt,

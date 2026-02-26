@@ -19,6 +19,8 @@ const fetchCode = ref('')
 const isFetching = ref(false)
 const fetchError = ref('')
 const fetchedContent = ref('')
+const fetchedType = ref('text') // 分享类型：text, image, file
+const fetchedFileInfo = ref<any>(null) // 文件信息
 const fetchedCode = ref('')
 const isShareContent = ref(false) // 标记是否是分享内容
 const shareExpiresAt = ref<number | null>(null) // 分享过期时间
@@ -41,7 +43,7 @@ const renderedFetchedContent = computed(() => {
 // 用于 v-model 的计算属性
 const fetchCodeModel = computed({
   get: () => fetchCode.value,
-  set: (val: string) => { 
+  set: (val: string) => {
     fetchCode.value = val
     console.log('[FetchPage] fetchCode 更新:', val)
   }
@@ -62,7 +64,7 @@ onMounted(() => {
 // 处理获取剪贴板（5位提取码）
 async function handleFetch() {
   console.log('[FetchPage] handleFetch 被调用，输入值:', fetchCode.value)
-  
+
   if (!fetchCode.value || fetchCode.value.length !== 5) {
     console.log('[FetchPage] 输入无效:', fetchCode.value)
     fetchError.value = '请输入5位提取码'
@@ -76,13 +78,13 @@ async function handleFetch() {
   try {
     const clipboardUrl = `${API_BASE}/api/clipboard?code=${fetchCode.value}`
     console.log('[FetchPage] 尝试获取剪贴板:', clipboardUrl)
-    
+
     const response = await fetch(clipboardUrl, {
       headers: {
         'Accept': 'application/json'
       }
     })
-    
+
     console.log('[FetchPage] 剪贴板响应状态:', response.status)
 
     if (response.status === 404) {
@@ -182,15 +184,17 @@ async function handleFetchShare(shareCode: string) {
 
     const data = await response.json()
     console.log('[FetchPage] 分享API获取成功，数据:', data)
-    
+
     if (!data.content) {
       console.log('[FetchPage] 警告: 返回数据中没有 content 字段')
     }
-    
+
     fetchedContent.value = data.content
+    fetchedType.value = data.type || 'text'
+    fetchedFileInfo.value = data.fileInfo || null
     fetchedCode.value = shareCode
     shareExpiresAt.value = data.expiresAt || null
-    console.log('[FetchPage] 内容已设置，长度:', data.content?.length)
+    console.log('[FetchPage] 内容已设置，长度:', data.content?.length, '类型:', fetchedType.value)
     emit('showToast', '分享内容已获取')
   } catch (error) {
     console.error('[FetchPage] 获取分享失败，错误:', error)
@@ -204,6 +208,8 @@ async function handleFetchShare(shareCode: string) {
 // 清除获取的内容
 function clearFetchedContent() {
   fetchedContent.value = ''
+  fetchedType.value = 'text'
+  fetchedFileInfo.value = null
   fetchedCode.value = ''
   fetchCode.value = ''
   isShareContent.value = false
@@ -213,7 +219,7 @@ function clearFetchedContent() {
 // 复制内容
 function copyContent() {
   if (!fetchedContent.value) return
-  
+
   navigator.clipboard.writeText(fetchedContent.value).then(() => {
     emit('showToast', '内容已复制')
   }).catch(() => {
@@ -230,7 +236,7 @@ function copyContent() {
 // 复制分享码
 function copyShareCode() {
   if (!fetchedCode.value) return
-  
+
   navigator.clipboard.writeText(fetchedCode.value).then(() => {
     emit('showToast', '分享码已复制')
   }).catch(() => {
@@ -254,6 +260,35 @@ function formatDate(timestamp: number): string {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// 解析图片内容
+function parseImageContent(content: string): string[] {
+  try {
+    const parsed = JSON.parse(content)
+    if (Array.isArray(parsed)) {
+      return parsed
+    }
+  } catch (e) {
+    // 如果不是 JSON，返回空数组
+  }
+  return []
+}
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// 下载文件
+function downloadFile() {
+  if (fetchedFileInfo.value?.url) {
+    window.open(fetchedFileInfo.value.url, '_blank')
+  }
 }
 
 // 关闭权限错误弹窗
@@ -284,18 +319,47 @@ function closeNotFoundDialog() {
         </div>
         <mdui-button-icon icon="close" @click="clearFetchedContent" class="close-btn"></mdui-button-icon>
       </div>
-      
+
       <!-- 内容区域 -->
       <div class="share-overlay-content">
         <mdui-card class="share-content-card">
-          <div class="markdown-body" v-html="renderedFetchedContent"></div>
+          <!-- 文本类型 -->
+          <div v-if="fetchedType === 'text'" class="markdown-body" v-html="renderedFetchedContent"></div>
+
+          <!-- 图片类型 -->
+          <div v-else-if="fetchedType === 'image'" class="image-share-content">
+            <div class="image-grid">
+              <img
+                v-for="(url, index) in parseImageContent(fetchedContent)"
+                :key="index"
+                :src="url"
+                class="share-image"
+                @click="window.open(url, '_blank')"
+              >
+            </div>
+          </div>
+
+          <!-- 文件类型 -->
+          <div v-else-if="fetchedType === 'file'" class="file-share-content">
+            <div class="file-card">
+              <mdui-icon name="insert_drive_file" style="font-size: 64px; color: var(--mdui-color-primary);"></mdui-icon>
+              <div class="file-info">
+                <span class="file-name">{{ fetchedFileInfo?.originalName || '未知文件' }}</span>
+                <span class="file-size">{{ formatFileSize(fetchedFileInfo?.size || 0) }}</span>
+              </div>
+              <mdui-button variant="filled" @click="downloadFile">
+                <mdui-icon slot="icon" name="download"></mdui-icon>
+                下载文件
+              </mdui-button>
+            </div>
+          </div>
         </mdui-card>
       </div>
-      
+
       <!-- 底部操作栏 -->
       <div class="share-overlay-footer">
         <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-          <mdui-button variant="filled" @click="copyContent">
+          <mdui-button v-if="fetchedType === 'text'" variant="filled" @click="copyContent">
             <mdui-icon slot="icon" name="content_copy"></mdui-icon>
             复制内容
           </mdui-button>
@@ -568,5 +632,68 @@ function closeNotFoundDialog() {
 .markdown-body :deep(th) {
   background: var(--mdui-color-surface-container-highest);
   font-weight: 600;
+}
+
+/* 图片分享样式 */
+.image-share-content {
+  padding: 16px;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.share-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.share-image:hover {
+  transform: scale(1.02);
+}
+
+/* 文件分享样式 */
+.file-share-content {
+  padding: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+.file-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  background: var(--mdui-color-surface-container);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-name {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--mdui-color-on-surface);
+  word-break: break-all;
+  max-width: 300px;
+}
+
+.file-size {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
 }
 </style>

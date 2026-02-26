@@ -4,6 +4,8 @@ import { ref, computed } from 'vue'
 const props = defineProps<{
   open: boolean
   content: string
+  type?: string
+  fileInfo?: any
 }>()
 
 const emit = defineEmits(['close', 'shareCreated'])
@@ -70,6 +72,8 @@ async function createShare() {
       },
       body: JSON.stringify({
         content: props.content,
+        type: props.type || 'text',
+        fileInfo: props.fileInfo || null,
         visibility: selectedVisibility.value,
         expireHours: selectedExpire.value,
       }),
