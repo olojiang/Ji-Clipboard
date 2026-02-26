@@ -276,13 +276,15 @@ onMounted(() => {
 }
 
 .storage-overview {
-  padding: 20px;
+  padding: 16px;
   margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .storage-stats {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   align-items: center;
 }
 
@@ -291,8 +293,8 @@ onMounted(() => {
 }
 
 .chart-ring {
-  width: 120px;
-  height: 120px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   background: conic-gradient(
     var(--mdui-color-primary) calc(var(--percent) * 1%),
@@ -305,8 +307,8 @@ onMounted(() => {
 }
 
 .chart-inner {
-  width: 90px;
-  height: 90px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: var(--mdui-color-surface);
   display: flex;
@@ -316,29 +318,30 @@ onMounted(() => {
 }
 
 .chart-percent {
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--mdui-color-on-surface);
 }
 
 .chart-label {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--mdui-color-on-surface-variant);
 }
 
 .storage-details {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
 }
 
 .detail-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--mdui-color-outline-variant);
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--mdui-color-surface-container);
+  border-radius: 8px;
 }
 
 .detail-item:last-child {
@@ -346,7 +349,7 @@ onMounted(() => {
 }
 
 .detail-label {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--mdui-color-on-surface-variant);
 }
 
@@ -361,15 +364,15 @@ onMounted(() => {
 }
 
 .storage-warning {
-  margin-top: 16px;
-  padding: 12px 16px;
+  margin-top: 12px;
+  padding: 8px 12px;
   background: var(--mdui-color-error-container);
   border-radius: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--mdui-color-on-error-container);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .images-section {
@@ -444,12 +447,13 @@ onMounted(() => {
 
 @media (max-width: 600px) {
   .storage-stats {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
   }
   
   .storage-details {
     width: 100%;
+    grid-template-columns: repeat(2, 1fr);
   }
   
   .images-grid {
