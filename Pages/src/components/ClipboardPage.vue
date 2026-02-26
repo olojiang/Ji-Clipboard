@@ -33,10 +33,6 @@ const selectedItems = ref<Set<number>>(new Set())
 // 删除恢复状态
 const lastDeletedItem = ref<{ content: string; createdAt: number; index: number } | null>(null)
 
-// 展开/收起状态
-const expandedItems = ref<Set<number>>(new Set())
-const MAX_LINES = 5
-
 // 长按和滑动状态
 const longPressTimer = ref<number | null>(null)
 const LONG_PRESS_DURATION = 800
@@ -262,21 +258,6 @@ async function undoDelete() {
 defineExpose({
   undoDelete
 })
-
-// 判断内容是否需要折叠（超过5行）
-function shouldCollapse(content: string): boolean {
-  const lines = content.split('\n')
-  return lines.length > MAX_LINES
-}
-
-// 切换展开/收起状态
-function toggleExpand(index: number) {
-  if (expandedItems.value.has(index)) {
-    expandedItems.value.delete(index)
-  } else {
-    expandedItems.value.add(index)
-  }
-}
 
 // 切换选择状态
 function toggleSelection(index: number) {
@@ -606,27 +587,11 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             
             <!-- 内容层 -->
             <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
-              <div class="clipboard-item-content" :class="{ 'is-multi-select': isMultiSelectMode }">
-                <mdui-icon 
-                  class="clipboard-icon" 
-                  :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
-                ></mdui-icon>
-                <div class="clipboard-body">
-                  <div 
-                    class="clipboard-text" 
-                    :class="{ 'is-expanded': expandedItems.has(index), 'is-collapsed': !expandedItems.has(index) && shouldCollapse(item.content) }"
-                  >{{ item.content }}</div>
-                  <mdui-button 
-                    v-if="shouldCollapse(item.content)" 
-                    variant="text" 
-                    class="expand-btn"
-                    @click.stop="toggleExpand(index)"
-                  >
-                    {{ expandedItems.has(index) ? '收起' : '展开' }}
-                  </mdui-button>
-                  <div class="clipboard-date">{{ formatDate(item.createdAt) }}</div>
-                </div>
-              </div>
+              <mdui-list-item
+                :headline="item.content"
+                :description="formatDate(item.createdAt)"
+                :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
+              ></mdui-list-item>
             </div>
           </div>
         </mdui-list>
@@ -808,64 +773,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   right: 16px;
   bottom: 96px;
   z-index: 100;
-}
-
-.clipboard-item-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 12px 16px;
-  background: white;
-  min-height: 48px;
-}
-
-.clipboard-item-content.is-multi-select {
-  background: var(--mdui-color-primary-container);
-}
-
-.clipboard-icon {
-  font-size: 24px;
-  color: var(--mdui-color-on-surface-variant);
-  flex-shrink: 0;
-  margin-top: 4px;
-}
-
-.clipboard-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.clipboard-text {
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.5;
-  color: var(--mdui-color-on-surface);
-  font-size: 16px;
-}
-
-.clipboard-text.is-collapsed {
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  max-height: 7.5em;
-}
-
-.expand-btn {
-  align-self: flex-start;
-  padding: 0;
-  min-width: auto;
-  height: auto;
-  font-size: 14px;
-  color: var(--mdui-color-primary);
-}
-
-.clipboard-date {
-  font-size: 14px;
-  color: var(--mdui-color-on-surface-variant);
 }
 
 .clipboard-dialog-textarea {
