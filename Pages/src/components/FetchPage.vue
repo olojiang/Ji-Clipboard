@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 
 const emit = defineEmits(['showToast'])
@@ -20,6 +20,7 @@ const isFetching = ref(false)
 const fetchError = ref('')
 const fetchedContent = ref('')
 const fetchedCode = ref('')
+const isShareContent = ref(false) // 标记是否是分享内容
 
 // 计算属性：渲染获取到的内容
 const renderedFetchedContent = computed(() => {
@@ -27,7 +28,19 @@ const renderedFetchedContent = computed(() => {
   return md.render(fetchedContent.value)
 })
 
-// 处理获取剪贴板
+// 页面加载时检查是否有待处理的分享码
+onMounted(() => {
+  const pendingShareCode = localStorage.getItem('pending_share_code')
+  if (pendingShareCode) {
+    console.log('[FetchPage] 检测到待处理的分享码:', pendingShareCode)
+    fetchCode.value = pendingShareCode
+    localStorage.removeItem('pending_share_code')
+    // 自动获取分享内容
+    handleFetchShare(pendingShareCode)
+  }
+})
+
+// 处理获取剪贴板（5位提取码）
 async function handleFetch() {
   if (!fetchCode.value || fetchCode.value.length !== 5) {
     fetchError.value = '请输入5位提取码'
@@ -46,8 +59,9 @@ async function handleFetch() {
     })
 
     if (response.status === 404) {
-      fetchError.value = '内容不存在或已过期'
-      isFetching.value = false
+      // 可能是分享码，尝试获取分享内容
+      console.log('[FetchPage] 提取码未找到，尝试作为分享码获取')
+      await handleFetchShare(fetchCode.value)
       return
     }
 
@@ -72,11 +86,78 @@ async function handleFetch() {
   }
 }
 
+// 处理获取分享内容
+async function handleFetchShare(shareCode: string) {
+  console.log('[FetchPage] 开始获取分享内容:', shareCode)
+  fetchError.value = ''
+  isFetching.value = true
+  fetchedContent.value = ''
+  isShareContent.value = true
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/shares/${shareCode}`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+    console.log('[FetchPage] 请求URL:', url)
+
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+
+    console.log('[FetchPage] 响应状态:', response.status)
+
+    if (response.status === 404) {
+      fetchError.value = '分享不存在或已过期'
+      isFetching.value = false
+      return
+    }
+
+    if (response.status === 401) {
+      fetchError.value = '需要登录才能查看此分享'
+      isFetching.value = false
+      return
+    }
+
+    if (response.status === 403) {
+      fetchError.value = '无权查看此分享'
+      isFetching.value = false
+      return
+    }
+
+    if (response.status === 410) {
+      fetchError.value = '分享已过期'
+      isFetching.value = false
+      return
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log('[FetchPage] 获取成功:', data)
+    fetchedContent.value = data.content
+    fetchedCode.value = shareCode
+    emit('showToast', '分享内容已获取')
+  } catch (error) {
+    console.error('[FetchPage] 获取分享失败:', error)
+    fetchError.value = '获取分享失败，请稍后重试'
+  } finally {
+    isFetching.value = false
+  }
+}
+
 // 清除获取的内容
 function clearFetchedContent() {
   fetchedContent.value = ''
   fetchedCode.value = ''
   fetchCode.value = ''
+  isShareContent.value = false
 }
 </script>
 
@@ -86,7 +167,9 @@ function clearFetchedContent() {
     <div v-if="fetchedContent" class="section">
       <mdui-card class="content-display-card">
         <div class="content-header">
-          <span class="content-code">提取码: {{ fetchedCode }}</span>
+          <span class="content-code">
+            {{ isShareContent ? '分享码' : '提取码' }}: {{ fetchedCode }}
+          </span>
           <mdui-button variant="text" @click="clearFetchedContent">返回</mdui-button>
         </div>
         <div class="markdown-body" v-html="renderedFetchedContent"></div>

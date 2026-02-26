@@ -42,16 +42,28 @@ const clipboardPageRef = ref<InstanceType<typeof ClipboardPage> | null>(null)
 
 // 页面加载时获取用户信息
 onMounted(async () => {
-  // 检查 URL hash
-  const hash = window.location.hash.replace('#', '')
-  if (hash === 'my-shares') {
-    showMySharesPage.value = true
-  } else if (hash && ['clipboard', 'fetch', 'share', 'profile'].includes(hash)) {
-    currentTab.value = hash
+  // 检查 URL 参数中的 share（分享链接）
+  const urlParams = new URLSearchParams(window.location.search)
+  const shareCode = urlParams.get('share')
+  
+  if (shareCode) {
+    console.log('[App] 检测到分享码:', shareCode)
+    // 有分享码，直接跳转到获取页面并传递分享码
+    currentTab.value = 'fetch'
+    // 将分享码存储到 localStorage，供 FetchPage 使用
+    localStorage.setItem('pending_share_code', shareCode)
+    console.log('[App] 已存储分享码到 localStorage')
+  } else {
+    // 检查 URL hash
+    const hash = window.location.hash.replace('#', '')
+    if (hash === 'my-shares') {
+      showMySharesPage.value = true
+    } else if (hash && ['clipboard', 'fetch', 'share', 'profile'].includes(hash)) {
+      currentTab.value = hash
+    }
   }
 
   // 检查 URL 参数中的 session
-  const urlParams = new URLSearchParams(window.location.search)
   const urlSession = urlParams.get('session')
   
   if (urlSession) {
