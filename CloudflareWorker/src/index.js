@@ -542,7 +542,7 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
   }
 
   const body = await request.json();
-  const { content } = body;
+  const { content, type } = body;
 
   if (!content || !content.trim()) {
     return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
@@ -554,10 +554,12 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
   const items = existingData ? JSON.parse(existingData) : [];
   
   // 添加新项目
-  items.push({
+  const newItem = {
     content: content.trim(),
+    type: type || 'text',
     createdAt: Date.now(),
-  });
+  };
+  items.push(newItem);
   
   // 保存回 KV（7天过期）
   await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
@@ -566,10 +568,7 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
 
   return jsonResponse({
     success: true,
-    item: {
-      content: content.trim(),
-      createdAt: Date.now(),
-    }
+    item: newItem
   }, 200, corsHeaders);
 }
 
