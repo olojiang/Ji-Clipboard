@@ -10,7 +10,7 @@ export default {
     const origin = request.headers.get('Origin') || env.FRONTEND_URL;
     const corsHeaders = {
       'Access-Control-Allow-Origin': origin || 'https://olojiang.github.io',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
       'Access-Control-Allow-Credentials': 'true',
       'Vary': 'Origin',
