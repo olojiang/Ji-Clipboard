@@ -355,16 +355,18 @@ function closeNotFoundDialog() {
 
 /* 全屏遮罩样式 */
 .share-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--mdui-color-surface);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #ffffff !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 }
 
 .share-overlay-header {
@@ -372,7 +374,7 @@ function closeNotFoundDialog() {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background: var(--mdui-color-surface);
+  background: #ffffff;
   border-bottom: 1px solid var(--mdui-color-outline-variant);
   flex-shrink: 0;
 }
@@ -394,16 +396,18 @@ function closeNotFoundDialog() {
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
+  background: #ffffff;
 }
 
 .share-content-card {
   padding: 20px;
   height: auto;
+  background: var(--mdui-color-surface);
 }
 
 .share-overlay-footer {
   padding: 16px;
-  background: var(--mdui-color-surface);
+  background: #ffffff;
   border-top: 1px solid var(--mdui-color-outline-variant);
   display: flex;
   justify-content: center;
