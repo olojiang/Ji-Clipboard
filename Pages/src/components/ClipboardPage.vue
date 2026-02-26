@@ -34,6 +34,10 @@ const selectedItems = ref<Set<number>>(new Set())
 const lastDeletedItem = ref<{ content: string; createdAt: number; index: number } | null>(null)
 
 // 长按和滑动状态
+// 长按菜单状态
+const showContextMenu = ref(false)
+const contextMenuItem = ref<any>(null)
+const contextMenuPosition = ref({ x: 0, y: 0 })
 const longPressTimer = ref<number | null>(null)
 const LONG_PRESS_DURATION = 800
 const swipeStartX = ref(0)
@@ -254,7 +258,49 @@ async function undoDelete() {
   }
 }
 
-// 暴露方法给父组件
+// 长按处理
+function handleLongPress(event: TouchEvent | MouseEvent, item: any, index: number) {
+  console.log('[LongPress] 显示菜单', item)
+  contextMenuItem.value = { ...item, index }
+  
+  // 获取触摸/点击位置
+  if ('touches' in event && event.touches.length > 0) {
+    contextMenuPosition.value = {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY
+    }
+  } else if ('clientX' in event) {
+    contextMenuPosition.value = {
+      x: event.clientX,
+      y: event.clientY
+    }
+  }
+  
+  showContextMenu.value = true
+}
+
+// 关闭菜单
+function closeContextMenu() {
+  showContextMenu.value = false
+  contextMenuItem.value = null
+}
+
+// 处理 body 区域的长按
+function handleBodyTouchStart(event: TouchEvent, item: any, index: number) {
+  if (isMultiSelectMode.value) return
+  
+  longPressTimer.value = window.setTimeout(() => {
+    handleLongPress(event, item, index)
+    longPressTimer.value = null
+  }, LONG_PRESS_DURATION)
+}
+
+function handleBodyTouchEnd(event: TouchEvent, item: any, index: number) {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+}
 defineExpose({
   undoDelete
 })
@@ -568,10 +614,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             :key="index"
             class="swipe-item"
             :class="{ 'swiping-left': item.swipeLeft, 'swiping-right': item.swipeRight, 'is-selected': selectedItems.has(index) }"
-            @touchstart="handleTouchStart($event, item, index)"
-            @touchmove="handleTouchMove($event, item)"
-            @touchend="handleTouchEnd($event, item, index)"
-            @click="isMultiSelectMode && toggleSelection(index)"
           >
             <!-- 左滑背景（删除）-->
             <div v-if="!isMultiSelectMode && item.swipeLeft" class="swipe-bg swipe-bg-left">
@@ -586,12 +628,28 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             </div>
             
             <!-- 内容层 -->
-            <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
-              <mdui-list-item
-                :headline="item.content"
-                :description="formatDate(item.createdAt)"
-                :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
-              ></mdui-list-item>
+            <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }" mdui-ripple
+              @touchstart="handleTouchStart($event, item, index)"
+              @touchmove="handleTouchMove($event, item)"
+              @touchend="handleTouchEnd($event, item, index)"
+              @click="isMultiSelectMode && toggleSelection(index)"
+            >
+              <div class="clipboard-item-row" :class="{ 'is-multi-select': isMultiSelectMode }"
+                @contextmenu.prevent="handleLongPress($event, item, index)"
+              >
+                <mdui-icon 
+                  class="clipboard-icon" 
+                  :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
+                  @click.stop="copyClipboard(item.content)"
+                ></mdui-icon>
+                <div class="clipboard-body"
+                  @touchstart="handleBodyTouchStart($event, item, index)"
+                  @touchend="handleBodyTouchEnd($event, item, index)"
+                >
+                  <div class="clipboard-text">{{ item.content }}</div>
+                  <div class="clipboard-date">{{ formatDate(item.createdAt) }}</div>
+                </div>
+              </div>
             </div>
           </div>
         </mdui-list>
@@ -599,6 +657,31 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 
       <!-- 悬浮添加按钮 -->
       <mdui-fab v-if="!isMultiSelectMode" class="fab-add" icon="add" @click="showAddClipboardDialog = true"></mdui-fab>
+
+      <!-- 长按菜单 -->
+      <div 
+        v-if="showContextMenu" 
+        class="context-menu-overlay"
+        @click="closeContextMenu"
+      >
+        <div 
+          class="context-menu" 
+          :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+          @click.stop
+        >
+          <div class="context-menu-title">{{ contextMenuItem?.content?.substring(0, 20) }}...{{ contextMenuItem?.content?.length > 20 ? '...' : '' }}</div>
+          <mdui-list>
+            <mdui-list-item @click="copyClipboard(contextMenuItem?.content); closeContextMenu()">
+              <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+              <div slot="headline">复制</div>
+            </mdui-list-item>
+            <mdui-list-item @click="deleteClipboard(contextMenuItem?.index, true); closeContextMenu()">
+              <mdui-icon slot="icon" name="delete" style="color: var(--mdui-color-error)"></mdui-icon>
+              <div slot="headline" style="color: var(--mdui-color-error)">删除</div>
+            </mdui-list-item>
+          </mdui-list>
+        </div>
+      </div>
 
       <!-- 添加剪贴板弹窗 -->
       <mdui-dialog
@@ -768,6 +851,94 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 .swipe-content mdui-list-item {
   background: white !important;
   --mdui-color-surface: white;
+}
+
+.clipboard-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 16px;
+  background: white;
+  min-height: 48px;
+}
+
+.clipboard-item-row.is-multi-select {
+  background: var(--mdui-color-primary-container);
+}
+
+.clipboard-icon {
+  font-size: 24px;
+  color: var(--mdui-color-on-surface-variant);
+  flex-shrink: 0;
+  margin-top: 4px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.clipboard-icon:hover {
+  background: var(--mdui-color-surface-container-highest);
+}
+
+.clipboard-icon:active {
+  background: var(--mdui-color-surface-container-high);
+}
+
+.clipboard-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.clipboard-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  color: var(--mdui-color-on-surface);
+  font-size: 16px;
+}
+
+.clipboard-date {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+/* 长按菜单 */
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.context-menu {
+  position: fixed;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  max-width: 300px;
+  overflow: hidden;
+  transform: translate(-50%, -100%);
+  margin-top: -10px;
+}
+
+.context-menu-title {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
+  border-bottom: 1px solid var(--mdui-color-outline-variant);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fab-add {
