@@ -707,30 +707,31 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       <!-- 悬浮添加按钮 -->
       <mdui-fab v-if="!isMultiSelectMode" class="fab-add" icon="add" @click="showAddClipboardDialog = true"></mdui-fab>
 
+      <!-- 长按菜单遮罩层 -->
+      <div v-if="showContextMenu" class="menu-overlay" @click="closeContextMenu"></div>
+      
       <!-- 长按菜单 - 使用 MDUI Menu -->
-      <div v-if="showContextMenu" class="menu-overlay" @click="closeContextMenu">
-        <mdui-menu
-          :open="true"
-          @close="closeContextMenu"
-          :style="{ position: 'fixed', left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px', 'z-index': '10001' }"
-          @click.stop
-        >
-          <!-- 如果是链接，显示在新标签页打开选项 -->
-          <mdui-menu-item v-if="contextMenuItem && isHttpLink(contextMenuItem.content)" @click="window.open(contextMenuItem.content.trim(), '_blank'); closeContextMenu()">
-            <mdui-icon slot="icon" name="open_in_new"></mdui-icon>
-            在新标签页打开
-          </mdui-menu-item>
-          <!-- 复制选项（所有情况都显示） -->
-          <mdui-menu-item @click="copyClipboard(contextMenuItem?.content); closeContextMenu()">
-            <mdui-icon slot="icon" name="content_copy"></mdui-icon>
-            复制
-          </mdui-menu-item>
-          <mdui-menu-item @click="deleteClipboard(contextMenuItem?.index, true); closeContextMenu()">
-            <mdui-icon slot="icon" name="delete" style="color: var(--mdui-color-error)"></mdui-icon>
-            <span style="color: var(--mdui-color-error)">删除</span>
-          </mdui-menu-item>
-        </mdui-menu>
-      </div>
+      <mdui-menu
+        v-if="showContextMenu"
+        :open="true"
+        @close="closeContextMenu"
+        :style="{ position: 'fixed', left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px', 'z-index': '10001' }"
+      >
+        <!-- 如果是链接，显示在新标签页打开选项 -->
+        <mdui-menu-item v-if="contextMenuItem && isHttpLink(contextMenuItem.content)" @click="window.open(contextMenuItem.content.trim(), '_blank'); closeContextMenu()">
+          <mdui-icon slot="icon" name="open_in_new"></mdui-icon>
+          在新标签页打开
+        </mdui-menu-item>
+        <!-- 复制选项（所有情况都显示） -->
+        <mdui-menu-item @click="copyClipboard(contextMenuItem?.content); closeContextMenu()">
+          <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+          复制
+        </mdui-menu-item>
+        <mdui-menu-item @click="deleteClipboard(contextMenuItem?.index, true); closeContextMenu()">
+          <mdui-icon slot="icon" name="delete" style="color: var(--mdui-color-error)"></mdui-icon>
+          <span style="color: var(--mdui-color-error)">删除</span>
+        </mdui-menu-item>
+      </mdui-menu>
 
       <!-- 添加剪贴板弹窗 -->
       <mdui-dialog
