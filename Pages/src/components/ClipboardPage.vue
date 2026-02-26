@@ -289,6 +289,12 @@ function handleLongPress(event: TouchEvent | MouseEvent, item: any, index: numbe
   showContextMenu.value = true
 }
 
+// 关闭菜单
+function closeContextMenu() {
+  showContextMenu.value = false
+  contextMenuItem.value = null
+}
+
 // 处理 body 区域的长按
 let touchStartTime = 0
 let touchStartX = 0
