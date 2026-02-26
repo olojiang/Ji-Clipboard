@@ -587,8 +587,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
             
             <!-- 内容层 -->
             <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }">
-              <div class="clipboard-item" :class="{ 'is-multi-select': isMultiSelectMode }" style="position: relative; overflow: hidden;">
-                <mdui-ripple></mdui-ripple>
+              <div class="clipboard-item" :class="{ 'is-multi-select': isMultiSelectMode }" mdui-ripple style="position: relative; overflow: hidden;">
                 <mdui-icon 
                   class="clipboard-icon" 
                   :name="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : 'content_paste')"
