@@ -125,6 +125,42 @@ function copyImageUrl(url: string) {
   })
 }
 
+// 下载文件
+function downloadFile(url: string) {
+  window.open(url, '_blank')
+}
+
+// 删除文件
+async function deleteFile(fileId: string) {
+  if (!confirm('确定要删除这个文件吗？')) {
+    return
+  }
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/files/${fileId}`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    })
+
+    if (!response.ok) {
+      throw new Error('删除失败')
+    }
+
+    emit('showToast', '文件已删除')
+    await fetchStorageInfo()
+  } catch (err: any) {
+    emit('showToast', '删除失败: ' + err.message)
+    console.error('删除文件失败:', err)
+  }
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchStorageInfo()
@@ -228,12 +264,45 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- 文件列表 -->
+    <div v-if="storageInfo && storageInfo.files && storageInfo.files.length > 0" class="files-section">
+      <h3 class="section-title">我的文件 ({{ storageInfo.files.length }})</h3>
+      
+      <div class="files-list">
+        <div v-for="file in storageInfo.files" :key="file.id" class="file-card">
+          <mdui-icon name="insert_drive_file" style="font-size: 40px; color: var(--mdui-color-primary);"></mdui-icon>
+          
+          <div class="file-info">
+            <span class="file-name">{{ file.originalName }}</span>
+            <div class="file-meta">
+              <span class="file-size">{{ formatFileSize(file.size) }}</span>
+              <span class="file-date">{{ formatDate(file.createdAt) }}</span>
+            </div>
+          </div>
+          
+          <div class="file-actions">
+            <mdui-button-icon
+              icon="download"
+              title="下载"
+              @click="downloadFile(file.url)"
+            ></mdui-button-icon>
+            <mdui-button-icon
+              icon="delete"
+              title="删除"
+              style="color: var(--mdui-color-error);"
+              @click="deleteFile(file.id)"
+            ></mdui-button-icon>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 空状态 -->
-    <div v-else-if="storageInfo && storageInfo.images.length === 0" class="empty-state">
-      <mdui-icon name="photo_library" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
-      <p>暂无图片</p>
+    <div v-else-if="storageInfo && storageInfo.images.length === 0 && (!storageInfo.files || storageInfo.files.length === 0)" class="empty-state">
+      <mdui-icon name="cloud_upload" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
+      <p>暂无上传内容</p>
       <p style="font-size: 14px; color: var(--mdui-color-on-surface-variant);">
-        在添加剪贴板时选择"图片"类型即可上传
+        在添加剪贴板时选择"图片"或"文件"类型即可上传
       </p>
     </div>
   </div>
@@ -453,6 +522,56 @@ onMounted(() => {
   gap: 8px;
 }
 
+/* 文件列表样式 */
+.files-section {
+  margin-top: 24px;
+}
+
+.files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--mdui-color-surface);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mdui-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+}
+
 @media (max-width: 600px) {
   .storage-stats {
     flex-direction: row;
@@ -466,6 +585,10 @@ onMounted(() => {
   
   .images-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .file-card {
+    padding: 12px;
   }
 }
 </style>
