@@ -771,7 +771,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 .clipboard-content {
   white-space: pre-wrap;
   word-break: break-word;
-  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -781,6 +780,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
   max-height: 4.5em;
   color: var(--mdui-color-on-surface);
   font-size: 16px;
+  min-height: 1.5em;
 }
 
 .clipboard-list-item {
