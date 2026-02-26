@@ -740,6 +740,11 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
         @close="closeContextMenu"
         :style="{ position: 'fixed', left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px', 'z-index': '10001' }"
       >
+        <!-- 复制选项 -->
+        <mdui-menu-item @click="copyClipboard(contextMenuItem?.content); closeContextMenu()">
+          <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+          复制
+        </mdui-menu-item>
         <!-- 如果是链接，显示在新标签页打开选项 -->
         <mdui-menu-item v-if="contextMenuItem && isHttpLink(contextMenuItem.content)" @click="window.open(contextMenuItem.content.trim(), '_blank'); closeContextMenu()">
           <mdui-icon slot="icon" name="open_in_new"></mdui-icon>
