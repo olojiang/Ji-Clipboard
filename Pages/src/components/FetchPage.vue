@@ -159,21 +159,52 @@ function clearFetchedContent() {
   fetchCode.value = ''
   isShareContent.value = false
 }
+
+// 复制内容
+function copyContent() {
+  if (!fetchedContent.value) return
+  
+  navigator.clipboard.writeText(fetchedContent.value).then(() => {
+    emit('showToast', '内容已复制')
+  }).catch(() => {
+    const input = document.createElement('input')
+    input.value = fetchedContent.value
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+    emit('showToast', '内容已复制')
+  })
+}
 </script>
 
 <template>
   <div class="section">
     <!-- 显示获取到的内容 -->
     <div v-if="fetchedContent" class="section">
+      <!-- 分享码/提取码 ID 显示在顶部 -->
+      <div class="share-id-header">
+        <mdui-chip icon="share" variant="outlined">
+          {{ isShareContent ? '分享码' : '提取码' }}: {{ fetchedCode }}
+        </mdui-chip>
+        <mdui-button-icon icon="close" @click="clearFetchedContent"></mdui-button-icon>
+      </div>
+      
+      <!-- 内容用 card 显示 -->
       <mdui-card class="content-display-card">
-        <div class="content-header">
-          <span class="content-code">
-            {{ isShareContent ? '分享码' : '提取码' }}: {{ fetchedCode }}
-          </span>
-          <mdui-button variant="text" @click="clearFetchedContent">返回</mdui-button>
-        </div>
         <div class="markdown-body" v-html="renderedFetchedContent"></div>
       </mdui-card>
+      
+      <!-- 操作按钮 -->
+      <div class="content-actions">
+        <mdui-button variant="filled" @click="copyContent">
+          <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+          复制内容
+        </mdui-button>
+        <mdui-button variant="outlined" @click="clearFetchedContent">
+          返回
+        </mdui-button>
+      </div>
     </div>
 
     <!-- 提取区域 -->
@@ -236,23 +267,29 @@ function clearFetchedContent() {
   --mdui-button-height: 48px;
 }
 
-.content-display-card {
-  padding: 16px;
-}
-
-.content-header {
+.share-id-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--mdui-color-outline);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  padding: 0 4px;
 }
 
-.content-code {
-  font-size: 14px;
-  color: var(--mdui-color-on-surface-variant);
+.share-id-header mdui-chip {
   font-family: 'SF Mono', Monaco, monospace;
+  font-weight: 600;
+}
+
+.content-display-card {
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.content-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 0 4px;
 }
 
 .markdown-body {
