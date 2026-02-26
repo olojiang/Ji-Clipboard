@@ -597,10 +597,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
                   <div class="clipboard-content">{{ item.content }}</div>
                   <div class="clipboard-date">{{ formatDate(item.createdAt) }}</div>
                 </div>
-                <div v-if="!isMultiSelectMode" class="clipboard-actions">
-                  <mdui-button-icon icon="content_copy" @click.stop="copyClipboard(item.content)" title="复制"></mdui-button-icon>
-                  <mdui-button-icon icon="delete" @click.stop="deleteClipboard(index, false)" title="删除"></mdui-button-icon>
-                </div>
               </div>
             </div>
           </div>
@@ -822,12 +818,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 .clipboard-date {
   font-size: 14px;
   color: var(--mdui-color-on-surface-variant);
-}
-
-.clipboard-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
 }
 
 .fab-add {
