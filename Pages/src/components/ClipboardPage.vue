@@ -68,6 +68,18 @@ watch(() => props.user.loggedIn, (loggedIn) => {
   }
 }, { immediate: true })
 
+// 调试：监听剪贴板列表变化
+watch(() => myClipboards.value, (newVal) => {
+  console.log('[watch myClipboards] 列表变化:', newVal)
+  newVal.forEach((item, index) => {
+    console.log(`[watch myClipboards] 项目 ${index}:`, {
+      type: item.type,
+      content: item.content?.substring(0, 50),
+      createdAt: item.createdAt
+    })
+  })
+}, { deep: true })
+
 // 格式化日期
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp)
@@ -195,7 +207,9 @@ async function fetchMyClipboards() {
     }
 
     const data = await response.json()
+    console.log('[fetchMyClipboards] 获取到的数据:', data)
     myClipboards.value = data.items || []
+    console.log('[fetchMyClipboards] 剪贴板列表:', myClipboards.value)
   } catch (error) {
     console.error('获取剪贴板列表失败:', error)
     clipboardsError.value = '获取剪贴板列表失败，请稍后重试'
@@ -206,13 +220,15 @@ async function fetchMyClipboards() {
 
 // 解析图片内容
 function parseImageContent(content: string): string[] {
+  console.log('[parseImageContent] 解析内容:', content)
   try {
     const parsed = JSON.parse(content)
+    console.log('[parseImageContent] 解析结果:', parsed)
     if (Array.isArray(parsed)) {
       return parsed
     }
   } catch (e) {
-    // 如果不是 JSON，返回空数组
+    console.log('[parseImageContent] 解析失败:', e)
   }
   return []
 }
