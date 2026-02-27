@@ -15,22 +15,36 @@ const md = new MarkdownIt({
 })
 
 // 解析批量分享内容（多个剪贴板项用 --- 分隔）
-function parseBatchShareContent(content: string): Array<{ type: string; content: string }> {
+function parseBatchShareContent(content: string): Array<{ type: string; content: string; imageUrls?: string[] }> {
   if (!content) return []
-  
+
   // 检查是否是批量分享（包含分隔符 ---）
   if (!content.includes('\n---\n')) {
     // 单个分享
     return [{ type: fetchedType.value, content }]
   }
-  
+
   // 批量分享，按分隔符分割
   const items = content.split('\n---\n')
   return items.map(item => {
     const trimmed = item.trim()
     // 判断类型
     if (trimmed.startsWith('[图片]')) {
-      return { type: 'image', content: trimmed.substring(4).trim() }
+      const imageContent = trimmed.substring(4).trim()
+      // 尝试解析图片 JSON 数组
+      let imageUrls: string[] = []
+      try {
+        const parsed = JSON.parse(imageContent)
+        if (Array.isArray(parsed)) {
+          imageUrls = parsed
+        }
+      } catch (e) {
+        // 如果不是 JSON，可能是单个 URL
+        if (imageContent.startsWith('http')) {
+          imageUrls = [imageContent]
+        }
+      }
+      return { type: 'image', content: imageContent, imageUrls }
     } else if (trimmed.startsWith('[文件]')) {
       return { type: 'file', content: trimmed.substring(4).trim() }
     } else {
@@ -216,7 +230,7 @@ async function handleFetchShare(shareCode: string) {
 
     fetchedContent.value = data.content
     fetchedType.value = data.type || 'text'
-    
+
     // 处理文件信息：优先使用 fileInfo，如果是文件类型且 fileInfo 为空，尝试从 content 解析
     if (data.type === 'file' && !data.fileInfo) {
       try {
@@ -232,7 +246,7 @@ async function handleFetchShare(shareCode: string) {
     } else {
       fetchedFileInfo.value = data.fileInfo || null
     }
-    
+
     fetchedCode.value = shareCode
     shareExpiresAt.value = data.expiresAt || null
     console.log('[FetchPage] 内容已设置，长度:', data.content?.length, '类型:', fetchedType.value, '文件信息:', fetchedFileInfo.value)
@@ -413,31 +427,24 @@ function closeNotFoundDialog() {
                 {{ item.type === 'image' ? '图片' : item.type === 'file' ? '文件' : '文本' }}
               </mdui-chip>
             </div>
-            
+
             <!-- 文本类型 -->
             <div v-if="item.type === 'text'" class="markdown-body" v-html="md.render(item.content)"></div>
 
             <!-- 图片类型 -->
             <div v-else-if="item.type === 'image'" class="image-share-content">
               <div class="image-grid">
-                <!-- 尝试解析为 JSON 数组 -->
-                <template v-if="parseImageContent(item.content).length > 0">
+                <!-- 使用预解析的 imageUrls -->
+                <template v-if="item.imageUrls && item.imageUrls.length > 0">
                   <img
-                    v-for="(url, imgIndex) in parseImageContent(item.content)"
+                    v-for="(url, imgIndex) in item.imageUrls"
                     :key="imgIndex"
                     :src="url"
                     class="share-image"
                     @click="window.open(url, '_blank')"
                   >
                 </template>
-                <!-- 如果不是 JSON，直接作为 URL 显示 -->
-                <img
-                  v-else-if="item.content.startsWith('http')"
-                  :src="item.content"
-                  class="share-image"
-                  @click="window.open(item.content, '_blank')"
-                >
-                <!-- 否则显示原始内容 -->
+                <!-- 如果没有解析到 URLs，显示原始内容 -->
                 <pre v-else style="white-space: pre-wrap; word-break: break-all;">{{ item.content }}</pre>
               </div>
             </div>
