@@ -520,7 +520,13 @@ function handleBodyTouchEnd(event: TouchEvent, item: any, index: number) {
 }
 
 // 处理图标点击
-function handleIconClick(item: any) {
+function handleIconClick(item: any, index: number) {
+  // 如果在多选模式，切换选择状态
+  if (isMultiSelectMode.value) {
+    toggleSelection(index)
+    return
+  }
+  
   if (isHttpLink(item.content)) {
     // 如果是链接，在新标签页打开
     window.open(item.content.trim(), '_blank')
@@ -944,7 +950,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
                 <mdui-button-icon
                   class="clipboard-icon-btn"
                   :icon="selectedItems.has(index) ? 'check_circle' : (isMultiSelectMode ? 'radio_button_unchecked' : (item.type === 'image' ? 'image' : (item.type === 'file' ? 'insert_drive_file' : (isHttpLink(item.content) ? 'link' : 'content_paste'))))"
-                  @click.stop="handleIconClick(item)"
+                  @click.stop="handleIconClick(item, index)"
                 ></mdui-button-icon>
                 <div class="clipboard-body"
                   @touchstart="handleBodyTouchStart($event, item, index)"
