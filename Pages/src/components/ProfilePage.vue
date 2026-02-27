@@ -66,10 +66,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.ol
       </div>
       
       <mdui-list>
-        <mdui-list-item icon="history" headline="我的分享" @click="$emit('showMyShares')"></mdui-list-item>
         <mdui-list-item icon="storage" headline="存储管理" @click="$emit('showStorage')"></mdui-list-item>
-        <mdui-list-item icon="settings" headline="设置"></mdui-list-item>
-        <mdui-list-item icon="help" headline="帮助"></mdui-list-item>
       </mdui-list>
       
       <mdui-button 
