@@ -1500,8 +1500,7 @@ async function handleGetImage(request, env, corsHeaders) {
     const headers = new Headers();
     object.writeHttpMetadata(headers);
     headers.set('etag', object.httpEtag);
-    headers.set('Access-Control-Allow-Origin', corsHeaders['Access-Control-Allow-Origin']);
-    headers.set('Access-Control-Allow-Credentials', 'true');
+    headers.set('Access-Control-Allow-Origin', '*'); // 允许所有来源访问图片
     headers.set('Cache-Control', 'public, max-age=86400');
 
     return new Response(object.body, { headers });

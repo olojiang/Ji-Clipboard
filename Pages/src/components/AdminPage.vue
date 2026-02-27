@@ -174,7 +174,7 @@ async function deleteShare(shareId: string) {
     <!-- 标签切换 -->
     <div class="tabs">
       <mdui-chip
-        :selected="currentTab === 'shares'"
+        :selected="currentTab === 'shares' ? true : undefined"
         @click="currentTab = 'shares'"
         style="cursor: pointer;"
       >
@@ -182,7 +182,7 @@ async function deleteShare(shareId: string) {
         所有分享
       </mdui-chip>
       <mdui-chip
-        :selected="currentTab === 'storage'"
+        :selected="currentTab === 'storage' ? true : undefined"
         @click="currentTab = 'storage'"
         style="cursor: pointer;"
       >
