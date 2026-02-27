@@ -85,6 +85,12 @@ const renderedFetchedContent = computed(() => {
   return md.render(fetchedContent.value)
 })
 
+// 计算属性：缓存批量分享解析结果
+const batchShareItems = computed(() => {
+  if (!fetchedContent.value) return []
+  return parseBatchShareContent(fetchedContent.value)
+})
+
 // 用于 v-model 的计算属性
 const fetchCodeModel = computed({
   get: () => fetchCode.value,
@@ -384,7 +390,7 @@ function closeNotFoundDialog() {
       <!-- 内容区域 -->
       <div class="share-overlay-content">
         <!-- 单个分享 -->
-        <mdui-card v-if="parseBatchShareContent(fetchedContent).length === 1" class="share-content-card">
+        <mdui-card v-if="batchShareItems.length === 1" class="share-content-card">
           <!-- 文本类型 -->
           <div v-if="fetchedType === 'text'" class="markdown-body" v-html="renderedFetchedContent"></div>
 
@@ -420,10 +426,10 @@ function closeNotFoundDialog() {
         <!-- 批量分享 - 每个项目一个 card -->
         <template v-else>
           <div class="batch-share-header">
-            <span class="batch-share-count">共 {{ parseBatchShareContent(fetchedContent).length }} 个项目</span>
+            <span class="batch-share-count">共 {{ batchShareItems.length }} 个项目</span>
           </div>
           <mdui-card
-            v-for="(item, index) in parseBatchShareContent(fetchedContent)"
+            v-for="(item, index) in batchShareItems"
             :key="index"
             class="share-content-card batch-item-card"
           >
