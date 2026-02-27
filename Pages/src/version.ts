@@ -1,3 +1,3 @@
 // 自动生成的版本号文件
-export const APP_VERSION = '1.0.72'
-export const BUILD_TIME = '2026-02-27T09:25:01.319Z'
+export const APP_VERSION = '1.0.73'
+export const BUILD_TIME = '2026-02-27T09:27:13.416Z'

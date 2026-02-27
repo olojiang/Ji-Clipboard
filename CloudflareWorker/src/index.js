@@ -1860,34 +1860,48 @@ async function handleAdminGetStorageStats(request, env, corsHeaders) {
     for (const key of list.keys) {
       const storageData = await env.CLIPBOARD_KV.get(key.name);
       if (storageData) {
-        const storage = JSON.parse(storageData);
-        const userId = key.name.replace('user_storage:', '');
-        
-        totalSize += storage.totalSize || 0;
-        totalImages += storage.images?.length || 0;
-        totalFiles += storage.files?.length || 0;
-        
-        users.push({
-          userId,
-          totalSize: storage.totalSize || 0,
-          imagesCount: storage.images?.length || 0,
-          filesCount: storage.files?.length || 0,
-        });
+        try {
+          const storage = JSON.parse(storageData);
+          const userId = key.name.replace('user_storage:', '');
+          
+          // 确保所有字段都是数字
+          const userTotalSize = Number(storage.totalSize) || 0;
+          const userImagesCount = Number(storage.images?.length) || 0;
+          const userFilesCount = Number(storage.files?.length) || 0;
+          
+          totalSize += userTotalSize;
+          totalImages += userImagesCount;
+          totalFiles += userFilesCount;
+          
+          users.push({
+            userId: String(userId),
+            totalSize: userTotalSize,
+            imagesCount: userImagesCount,
+            filesCount: userFilesCount,
+          });
+        } catch (e) {
+          console.error('解析用户存储数据失败:', key.name, e);
+          // 跳过这个用户的数据
+        }
       }
     }
     
     // 按存储大小倒序排列
     users.sort((a, b) => b.totalSize - a.totalSize);
     
-    return jsonResponse({
+    const result = {
       users,
       summary: {
         totalUsers: users.length,
-        totalSize,
-        totalImages,
-        totalFiles,
+        totalSize: Number(totalSize),
+        totalImages: Number(totalImages),
+        totalFiles: Number(totalFiles),
       }
-    }, 200, corsHeaders);
+    };
+    
+    console.log('管理员存储统计结果:', JSON.stringify(result));
+    
+    return jsonResponse(result, 200, corsHeaders);
   } catch (error) {
     console.error('Admin get storage stats error:', error);
     return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);

@@ -93,21 +93,81 @@ async function fetchStorageStats() {
       url += `?session=${sessionId}`
     }
 
+    console.log('开始获取存储统计:', url)
+    
     const response = await fetch(url, {
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
     })
 
+    console.log('存储统计响应状态:', response.status)
+    
     if (!response.ok) {
-      throw new Error('获取存储统计失败')
+      const errorText = await response.text()
+      console.error('存储统计响应错误:', errorText)
+      throw new Error(`获取存储统计失败: ${response.status}`)
     }
 
     const data = await response.json()
-    console.log('存储统计数据:', data)
-    storageStats.value = data
-  } catch (error) {
+    console.log('存储统计数据:', JSON.stringify(data, null, 2))
+    
+    // 验证数据结构
+    if (!data || typeof data !== 'object') {
+      throw new Error('返回数据格式错误: 不是对象')
+    }
+    
+    if (!Array.isArray(data.users)) {
+      console.warn('users 字段不是数组:', data.users)
+      data.users = []
+    }
+    
+    if (!data.summary || typeof data.summary !== 'object') {
+      console.warn('summary 字段不是对象:', data.summary)
+      data.summary = {
+        totalUsers: 0,
+        totalSize: 0,
+        totalImages: 0,
+        totalFiles: 0
+      }
+    }
+    
+    // 确保所有数字字段都是数字
+    data.summary.totalUsers = Number(data.summary.totalUsers) || 0
+    data.summary.totalSize = Number(data.summary.totalSize) || 0
+    data.summary.totalImages = Number(data.summary.totalImages) || 0
+    data.summary.totalFiles = Number(data.summary.totalFiles) || 0
+    
+    // 处理 users 数组中的每个用户
+    data.users = data.users.map((user: any, index: number) => {
+      try {
+        return {
+          userId: String(user.userId || ''),
+          totalSize: Number(user.totalSize) || 0,
+          imagesCount: Number(user.imagesCount) || 0,
+          filesCount: Number(user.filesCount) || 0
+        }
+      } catch (e) {
+        console.error(`处理第 ${index} 个用户数据失败:`, user, e)
+        return {
+          userId: 'unknown',
+          totalSize: 0,
+          imagesCount: 0,
+          filesCount: 0
+        }
+      }
+    })
+    
+    console.log('处理后的数据:', JSON.stringify(data, null, 2))
+    
+    // 使用 Object.assign 来更新响应式对象
+    storageStats.value = { ...data }
+    
+    console.log('storageStats 已更新:', storageStats.value)
+  } catch (error: any) {
     console.error('获取存储统计失败:', error)
-    emit('showToast', '获取存储统计失败')
+    console.error('错误堆栈:', error.stack)
+    emit('showToast', '获取存储统计失败: ' + error.message)
+    storageStats.value = null
   } finally {
     storageLoading.value = false
   }
