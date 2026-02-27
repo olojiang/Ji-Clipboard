@@ -206,21 +206,21 @@ onMounted(() => {
         <div class="storage-details">
           <div class="detail-item">
             <span class="detail-label">总空间</span>
-            <span class="detail-value">{{ formatFileSize(storageInfo.maxSize) }}</span>
+            <span class="detail-value">{{ formatFileSize(storageInfo.maxSize || 0) }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">已用空间</span>
             <span class="detail-value" :class="{ 'text-error': storagePercent >= 90 }">
-              {{ formatFileSize(storageInfo.totalSize) }}
+              {{ formatFileSize(storageInfo.totalSize || 0) }}
             </span>
           </div>
           <div class="detail-item">
             <span class="detail-label">剩余空间</span>
-            <span class="detail-value">{{ formatFileSize(storageInfo.maxSize - storageInfo.totalSize) }}</span>
+            <span class="detail-value">{{ formatFileSize((storageInfo.maxSize || 0) - (storageInfo.totalSize || 0)) }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">图片数量</span>
-            <span class="detail-value">{{ storageInfo.images.length }} 张</span>
+            <span class="detail-value">{{ (storageInfo.images || []).length }} 张</span>
           </div>
         </div>
       </div>
@@ -232,7 +232,7 @@ onMounted(() => {
     </mdui-card>
 
     <!-- 图片列表 -->
-    <div v-if="storageInfo && storageInfo.images.length > 0" class="images-section">
+    <div v-if="storageInfo && storageInfo.images && storageInfo.images.length > 0" class="images-section">
       <h3 class="section-title">我的图片 ({{ storageInfo.images.length }})</h3>
       
       <div class="images-grid">
@@ -299,7 +299,7 @@ onMounted(() => {
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="storageInfo && storageInfo.images.length === 0 && (!storageInfo.files || storageInfo.files.length === 0)" class="empty-state">
+    <div v-else-if="storageInfo && (!storageInfo.images || storageInfo.images.length === 0) && (!storageInfo.files || storageInfo.files.length === 0)" class="empty-state">
       <mdui-icon name="cloud_upload" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
       <p>暂无上传内容</p>
       <p style="font-size: 14px; color: var(--mdui-color-on-surface-variant);">
