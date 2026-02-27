@@ -199,40 +199,50 @@ function openShare(shareId: string) {
   <div class="my-shares-page">
     <!-- 主内容区 -->
     <main class="main-content">
-      <div v-if="mySharesLoading" class="loading-state">
-        <div class="spinner"></div>
-        <p>正在加载...</p>
-      </div>
-
-      <div v-else-if="mySharesError" class="error-state">
-        <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
-        <p>{{ mySharesError }}</p>
-        <mdui-button variant="filled" @click="fetchMyShares">重试</mdui-button>
-      </div>
-
-      <div v-else-if="myShares.length === 0" class="empty-state">
-        <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
-        <p>暂无分享内容</p>
-      </div>
-
-      <!-- 分享列表 -->
-      <mdui-list v-else class="shares-list">
-        <div
-          v-for="share in myShares"
-          :key="share.id"
-          class="share-item"
-          @click="openDetail(share)"
-        >
-          <div class="share-content">
-            <div class="share-text">{{ getFirstLine(share.content) }}</div>
-            <div class="share-meta">
-              <span class="share-date">{{ formatDate(share.createdAt) }}</span>
-              <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
-            </div>
-          </div>
-          <mdui-icon name="chevron_right" class="share-arrow"></mdui-icon>
+      <!-- 我的分享列表 -->
+      <mdui-card class="shares-list-card">
+        <div class="shares-list-header">
+          <span class="shares-list-title">我的分享</span>
+          <mdui-button variant="text" @click="fetchMyShares" :loading="mySharesLoading">
+            <mdui-icon slot="icon" name="refresh"></mdui-icon>
+            刷新
+          </mdui-button>
         </div>
-      </mdui-list>
+
+        <div v-if="mySharesLoading" class="loading-state">
+          <div class="spinner"></div>
+          <p>正在加载...</p>
+        </div>
+
+        <div v-else-if="mySharesError" class="error-state">
+          <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
+          <p>{{ mySharesError }}</p>
+          <mdui-button variant="filled" @click="fetchMyShares">重试</mdui-button>
+        </div>
+
+        <div v-else-if="myShares.length === 0" class="empty-state">
+          <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
+          <p>暂无分享内容</p>
+        </div>
+
+        <mdui-list v-else class="shares-list">
+          <div
+            v-for="share in myShares"
+            :key="share.id"
+            class="share-item"
+            @click="openDetail(share)"
+          >
+            <div class="share-content">
+              <div class="share-text">{{ getFirstLine(share.content) }}</div>
+              <div class="share-meta">
+                <span class="share-date">{{ formatDate(share.createdAt) }}</span>
+                <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
+              </div>
+            </div>
+            <mdui-icon name="chevron_right" class="share-arrow"></mdui-icon>
+          </div>
+        </mdui-list>
+      </mdui-card>
     </main>
 
     <!-- 详情弹窗 -->
@@ -328,6 +338,27 @@ function openShare(shareId: string) {
 
 .main-content {
   padding: 0;
+}
+
+.shares-list-card {
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.shares-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+
+.shares-list-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mdui-color-on-surface-variant);
+  letter-spacing: 1px;
 }
 
 .loading-state, .error-state, .empty-state {
