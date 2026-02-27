@@ -311,8 +311,18 @@ function handleClose() {
       <mdui-button variant="text" @click="handleClose">
         {{ shareResult ? '关闭' : '取消' }}
       </mdui-button>
+      <template v-if="shareResult">
+        <mdui-button variant="filled" @click="copyShareCode">
+          <mdui-icon slot="icon" name="tag"></mdui-icon>
+          复制分享码
+        </mdui-button>
+        <mdui-button variant="outlined" @click="copyShareUrl">
+          <mdui-icon slot="icon" name="link"></mdui-icon>
+          复制链接
+        </mdui-button>
+      </template>
       <mdui-button 
-        v-if="!shareResult"
+        v-else
         variant="filled" 
         :loading="isCreating"
         @click="createShare"
