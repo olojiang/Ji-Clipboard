@@ -93,36 +93,20 @@ async function fetchStorageStats() {
       url += `?session=${sessionId}`
     }
 
-    console.log('开始获取存储统计:', url)
-    
     const response = await fetch(url, {
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
     })
 
-    console.log('存储统计响应状态:', response.status)
-    
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('存储统计响应错误:', errorText)
-      throw new Error(`获取存储统计失败: ${response.status}`)
+      throw new Error('获取存储统计失败')
     }
 
     const data = await response.json()
-    console.log('存储统计数据:', JSON.stringify(data, null, 2))
     
-    // 验证数据结构
-    if (!data || typeof data !== 'object') {
-      throw new Error('返回数据格式错误: 不是对象')
-    }
-    
-    if (!Array.isArray(data.users)) {
-      console.warn('users 字段不是数组:', data.users)
-      data.users = []
-    }
-    
-    if (!data.summary || typeof data.summary !== 'object') {
-      console.warn('summary 字段不是对象:', data.summary)
+    // 确保数据格式正确
+    if (!data.users) data.users = []
+    if (!data.summary) {
       data.summary = {
         totalUsers: 0,
         totalSize: 0,
@@ -131,41 +115,9 @@ async function fetchStorageStats() {
       }
     }
     
-    // 确保所有数字字段都是数字
-    data.summary.totalUsers = Number(data.summary.totalUsers) || 0
-    data.summary.totalSize = Number(data.summary.totalSize) || 0
-    data.summary.totalImages = Number(data.summary.totalImages) || 0
-    data.summary.totalFiles = Number(data.summary.totalFiles) || 0
-    
-    // 处理 users 数组中的每个用户
-    data.users = data.users.map((user: any, index: number) => {
-      try {
-        return {
-          userId: String(user.userId || ''),
-          totalSize: Number(user.totalSize) || 0,
-          imagesCount: Number(user.imagesCount) || 0,
-          filesCount: Number(user.filesCount) || 0
-        }
-      } catch (e) {
-        console.error(`处理第 ${index} 个用户数据失败:`, user, e)
-        return {
-          userId: 'unknown',
-          totalSize: 0,
-          imagesCount: 0,
-          filesCount: 0
-        }
-      }
-    })
-    
-    console.log('处理后的数据:', JSON.stringify(data, null, 2))
-    
-    // 使用 Object.assign 来更新响应式对象
-    storageStats.value = { ...data }
-    
-    console.log('storageStats 已更新:', storageStats.value)
+    storageStats.value = data
   } catch (error: any) {
     console.error('获取存储统计失败:', error)
-    console.error('错误堆栈:', error.stack)
     emit('showToast', '获取存储统计失败: ' + error.message)
     storageStats.value = null
   } finally {
@@ -175,7 +127,6 @@ async function fetchStorageStats() {
 
 // 切换标签
 function switchTab(tab: string) {
-  console.log('切换标签:', tab)
   currentTab.value = tab
 }
 
@@ -220,41 +171,46 @@ async function deleteShare(shareId: string) {
 
     <!-- 标签切换 -->
     <div class="tabs">
-      <button
-        class="tab-button"
-        :class="{ active: currentTab === 'shares' }"
+      <mdui-chip
+        :selected="currentTab === 'shares'"
         @click="switchTab('shares')"
+        style="cursor: pointer;"
       >
+        <mdui-icon slot="icon" name="share"></mdui-icon>
         所有分享
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: currentTab === 'storage' }"
+      </mdui-chip>
+      <mdui-chip
+        :selected="currentTab === 'storage'"
         @click="switchTab('storage')"
+        style="cursor: pointer;"
       >
+        <mdui-icon slot="icon" name="storage"></mdui-icon>
         存储统计
-      </button>
+      </mdui-chip>
     </div>
 
     <!-- 分享列表 -->
     <div v-if="currentTab === 'shares'">
-      <div class="content-card">
+      <mdui-card class="content-card">
         <div class="card-header">
           <span class="card-title">所有分享 ({{ shares.length }})</span>
-          <button class="refresh-btn" @click="fetchAllShares" :disabled="sharesLoading">
-            {{ sharesLoading ? '加载中...' : '刷新' }}
-          </button>
+          <mdui-button variant="text" @click="fetchAllShares" :loading="sharesLoading">
+            <mdui-icon slot="icon" name="refresh"></mdui-icon>
+            刷新
+          </mdui-button>
         </div>
 
         <div v-if="sharesLoading" class="loading-state">
+          <div class="spinner"></div>
           <p>正在加载...</p>
         </div>
 
         <div v-else-if="shares.length === 0" class="empty-state">
+          <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
           <p>暂无分享</p>
         </div>
 
-        <div v-else class="shares-list">
+        <mdui-list v-else class="shares-list">
           <div
             v-for="share in shares"
             :key="share.id"
@@ -262,27 +218,34 @@ async function deleteShare(shareId: string) {
           >
             <div class="share-content">
               <div class="share-header">
-                <span class="share-id">{{ share.id }}</span>
+                <mdui-chip icon="tag" variant="outlined" size="small" style="font-family: monospace;"
+                  >{{ share.id }}</mdui-chip>
                 <span class="share-owner">@{{ share.ownerLogin }}</span>
                 <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
               </div>
               <div class="share-text">{{ share.content }}</div>
               <div class="share-date">{{ formatDate(share.createdAt) }}</div>
             </div>
-            <button class="delete-btn" @click="deleteShare(share.id)">删除</button>
+            <mdui-button-icon
+              icon="delete"
+              style="color: var(--mdui-color-error);"
+              @click="deleteShare(share.id)"
+              title="删除"
+            ></mdui-button-icon>
           </div>
-        </div>
-      </div>
+        </mdui-list>
+      </mdui-card>
     </div>
 
     <!-- 存储统计 -->
     <div v-else-if="currentTab === 'storage'">
-      <div v-if="storageStats" class="content-card">
+      <mdui-card v-if="storageStats" class="content-card">
         <div class="card-header">
           <span class="card-title">存储概览</span>
-          <button class="refresh-btn" @click="fetchStorageStats" :disabled="storageLoading">
-            {{ storageLoading ? '加载中...' : '刷新' }}
-          </button>
+          <mdui-button variant="text" @click="fetchStorageStats" :loading="storageLoading">
+            <mdui-icon slot="icon" name="refresh"></mdui-icon>
+            刷新
+          </mdui-button>
         </div>
 
         <div class="stats-summary">
@@ -303,34 +266,35 @@ async function deleteShare(shareId: string) {
             <span class="stat-label">文件总数</span>
           </div>
         </div>
-      </div>
+      </mdui-card>
 
-      <div v-if="storageStats?.users" class="content-card">
+      <mdui-card v-if="storageStats?.users" class="content-card">
         <div class="card-header">
           <span class="card-title">用户存储详情 ({{ storageStats.users.length }})</span>
         </div>
 
         <div v-if="storageLoading" class="loading-state">
+          <div class="spinner"></div>
           <p>正在加载...</p>
         </div>
 
-        <div v-else class="users-list">
-          <div
+        <mdui-list v-else class="users-list">
+          <mdui-list-item
             v-for="user in storageStats.users"
             :key="user.userId"
             class="user-item"
           >
-            <div class="user-info">
-              <span class="user-id">用户 {{ user.userId?.substring(0, 8) }}...</span>
-              <div class="user-stats">
-                <span>{{ formatFileSize(user.totalSize || 0) }}</span>
-                <span>{{ user.imagesCount || 0 }} 张图片</span>
-                <span>{{ user.filesCount || 0 }} 个文件</span>
-              </div>
+            <div slot="headline" class="user-info">
+              <span>用户 {{ user.userId?.substring(0, 8) }}...</span>
             </div>
-          </div>
-        </div>
-      </div>
+            <div slot="description" class="user-stats">
+              <mdui-chip size="small" variant="outlined">{{ formatFileSize(user.totalSize || 0) }}</mdui-chip>
+              <mdui-chip size="small" variant="outlined">{{ user.imagesCount || 0 }} 张图片</mdui-chip>
+              <mdui-chip size="small" variant="outlined">{{ user.filesCount || 0 }} 个文件</mdui-chip>
+            </div>
+          </mdui-list-item>
+        </mdui-list>
+      </mdui-card>
     </div>
   </div>
 </template>
@@ -365,35 +329,15 @@ async function deleteShare(shareId: string) {
   padding: 0 8px;
 }
 
-.tab-button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  background: var(--mdui-color-surface-container);
-  color: var(--mdui-color-on-surface);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tab-button.active {
-  background: var(--mdui-color-primary-container);
-  color: var(--mdui-color-on-primary-container);
-}
-
 .content-card {
-  background: var(--mdui-color-surface);
-  border-radius: 12px;
-  padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  padding: 16px;
 }
 
 .card-title {
@@ -402,40 +346,40 @@ async function deleteShare(shareId: string) {
   color: var(--mdui-color-on-surface-variant);
 }
 
-.refresh-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: var(--mdui-color-primary);
-  color: white;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .loading-state, .empty-state {
   text-align: center;
   padding: 48px 24px;
   color: var(--mdui-color-on-surface-variant);
 }
 
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--mdui-color-surface-container-highest);
+  border-top-color: var(--mdui-color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .shares-list, .users-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding: 0;
 }
 
 .share-item {
   display: flex;
   align-items: flex-start;
-  padding: 12px;
-  background: var(--mdui-color-surface-container);
-  border-radius: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--mdui-color-surface-container-highest);
   gap: 12px;
+}
+
+.share-item:last-child {
+  border-bottom: none;
 }
 
 .share-content {
@@ -451,14 +395,6 @@ async function deleteShare(shareId: string) {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.share-id {
-  font-family: monospace;
-  font-size: 12px;
-  padding: 2px 6px;
-  background: var(--mdui-color-surface-container-highest);
-  border-radius: 4px;
 }
 
 .share-owner {
@@ -487,20 +423,11 @@ async function deleteShare(shareId: string) {
   color: var(--mdui-color-on-surface-variant);
 }
 
-.delete-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: var(--mdui-color-error);
-  color: white;
-  font-size: 12px;
-  cursor: pointer;
-}
-
 .stats-summary {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+  padding: 16px;
 }
 
 .stat-item {
@@ -513,7 +440,7 @@ async function deleteShare(shareId: string) {
 }
 
 .stat-value {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 600;
   color: var(--mdui-color-primary);
 }
@@ -525,31 +452,18 @@ async function deleteShare(shareId: string) {
 }
 
 .user-item {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  background: var(--mdui-color-surface-container);
-  border-radius: 8px;
+  --mdui-list-item-leading-space: 16px;
+  --mdui-list-item-trailing-space: 16px;
 }
 
 .user-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.user-id {
-  font-size: 14px;
   font-weight: 500;
-  color: var(--mdui-color-on-surface);
 }
 
 .user-stats {
   display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--mdui-color-on-surface-variant);
+  gap: 8px;
+  margin-top: 4px;
 }
 
 @media (max-width: 600px) {
