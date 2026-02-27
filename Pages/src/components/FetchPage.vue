@@ -191,10 +191,26 @@ async function handleFetchShare(shareCode: string) {
 
     fetchedContent.value = data.content
     fetchedType.value = data.type || 'text'
-    fetchedFileInfo.value = data.fileInfo || null
+    
+    // 处理文件信息：优先使用 fileInfo，如果是文件类型且 fileInfo 为空，尝试从 content 解析
+    if (data.type === 'file' && !data.fileInfo) {
+      try {
+        const parsedContent = JSON.parse(data.content)
+        if (parsedContent && parsedContent.id) {
+          fetchedFileInfo.value = parsedContent
+        } else {
+          fetchedFileInfo.value = null
+        }
+      } catch {
+        fetchedFileInfo.value = null
+      }
+    } else {
+      fetchedFileInfo.value = data.fileInfo || null
+    }
+    
     fetchedCode.value = shareCode
     shareExpiresAt.value = data.expiresAt || null
-    console.log('[FetchPage] 内容已设置，长度:', data.content?.length, '类型:', fetchedType.value)
+    console.log('[FetchPage] 内容已设置，长度:', data.content?.length, '类型:', fetchedType.value, '文件信息:', fetchedFileInfo.value)
     emit('showToast', '分享内容已获取')
   } catch (error) {
     console.error('[FetchPage] 获取分享失败，错误:', error)
