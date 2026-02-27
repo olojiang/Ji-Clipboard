@@ -14,6 +14,31 @@ const md = new MarkdownIt({
   typographer: true
 })
 
+// 解析批量分享内容（多个剪贴板项用 --- 分隔）
+function parseBatchShareContent(content: string): Array<{ type: string; content: string }> {
+  if (!content) return []
+  
+  // 检查是否是批量分享（包含分隔符 ---）
+  if (!content.includes('\n---\n')) {
+    // 单个分享
+    return [{ type: fetchedType.value, content }]
+  }
+  
+  // 批量分享，按分隔符分割
+  const items = content.split('\n---\n')
+  return items.map(item => {
+    const trimmed = item.trim()
+    // 判断类型
+    if (trimmed.startsWith('[图片]')) {
+      return { type: 'image', content: trimmed.substring(4).trim() }
+    } else if (trimmed.startsWith('[文件]')) {
+      return { type: 'file', content: trimmed.substring(4).trim() }
+    } else {
+      return { type: 'text', content: trimmed }
+    }
+  })
+}
+
 // 获取相关状态
 const fetchCode = ref('')
 const isFetching = ref(false)
@@ -338,7 +363,8 @@ function closeNotFoundDialog() {
 
       <!-- 内容区域 -->
       <div class="share-overlay-content">
-        <mdui-card class="share-content-card">
+        <!-- 单个分享 -->
+        <mdui-card v-if="parseBatchShareContent(fetchedContent).length === 1" class="share-content-card">
           <!-- 文本类型 -->
           <div v-if="fetchedType === 'text'" class="markdown-body" v-html="renderedFetchedContent"></div>
 
@@ -370,6 +396,51 @@ function closeNotFoundDialog() {
             </div>
           </div>
         </mdui-card>
+
+        <!-- 批量分享 - 每个项目一个 card -->
+        <template v-else>
+          <div class="batch-share-header">
+            <span class="batch-share-count">共 {{ parseBatchShareContent(fetchedContent).length }} 个项目</span>
+          </div>
+          <mdui-card
+            v-for="(item, index) in parseBatchShareContent(fetchedContent)"
+            :key="index"
+            class="share-content-card batch-item-card"
+          >
+            <div class="batch-item-header">
+              <span class="batch-item-number">#{{ index + 1 }}</span>
+              <mdui-chip size="small" variant="outlined">
+                {{ item.type === 'image' ? '图片' : item.type === 'file' ? '文件' : '文本' }}
+              </mdui-chip>
+            </div>
+            
+            <!-- 文本类型 -->
+            <div v-if="item.type === 'text'" class="markdown-body" v-html="md.render(item.content)"></div>
+
+            <!-- 图片类型 -->
+            <div v-else-if="item.type === 'image'" class="image-share-content">
+              <div class="image-grid">
+                <img
+                  v-for="(url, imgIndex) in parseImageContent(item.content)"
+                  :key="imgIndex"
+                  :src="url"
+                  class="share-image"
+                  @click="window.open(url, '_blank')"
+                >
+              </div>
+            </div>
+
+            <!-- 文件类型 -->
+            <div v-else-if="item.type === 'file'" class="file-share-content">
+              <div class="file-card">
+                <mdui-icon name="insert_drive_file" style="font-size: 48px; color: var(--mdui-color-primary);"></mdui-icon>
+                <div class="file-info">
+                  <span class="file-name">{{ item.content.substring(0, 50) }}{{ item.content.length > 50 ? '...' : '' }}</span>
+                </div>
+              </div>
+            </div>
+          </mdui-card>
+        </template>
       </div>
 
       <!-- 底部操作栏 -->
@@ -547,6 +618,41 @@ function closeNotFoundDialog() {
   padding: 20px;
   height: auto;
   background: var(--mdui-color-surface);
+  margin-bottom: 16px;
+}
+
+/* 批量分享样式 */
+.batch-share-header {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.batch-share-count {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
+  background: var(--mdui-color-surface-container);
+  padding: 6px 16px;
+  border-radius: 16px;
+}
+
+.batch-item-card {
+  margin-bottom: 12px;
+}
+
+.batch-item-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--mdui-color-surface-container-highest);
+}
+
+.batch-item-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mdui-color-primary);
+  font-family: monospace;
 }
 
 .share-overlay-footer {
