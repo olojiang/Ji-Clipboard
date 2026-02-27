@@ -701,7 +701,7 @@ async function deleteShare(shareId: string) {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--mdui-color-surface-container-low);
+  background: var(--mdui-color-background);
   z-index: 1000;
   display: flex;
   flex-direction: column;
