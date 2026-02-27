@@ -306,6 +306,12 @@ onMounted(() => {
         在添加剪贴板时选择"图片"或"文件"类型即可上传
       </p>
     </div>
+
+    <!-- 默认状态（storageInfo 为 null） -->
+    <div v-else class="loading-state">
+      <div class="spinner"></div>
+      <p>正在加载存储信息...</p>
+    </div>
   </div>
 </template>
 
