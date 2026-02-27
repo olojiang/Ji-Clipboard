@@ -284,19 +284,12 @@ function openShare(shareId: string) {
           <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 8px;">
             分享内容
           </div>
-          <div style="
-            padding: 12px 16px;
-            background: var(--mdui-color-surface-container);
-            border-radius: 8px;
-            font-size: 14px;
-            line-height: 1.5;
-            max-height: 200px;
-            overflow-y: auto;
-            word-break: break-word;
-            white-space: pre-wrap;
-          ">
-            {{ selectedShare.content }}
-          </div>
+          <!-- 使用 ClipboardItem 组件渲染分享内容 -->
+          <ClipboardItem
+            :item="{ content: selectedShare.content, type: 'text', createdAt: selectedShare.createdAt }"
+            :show-actions="false"
+            style="background: var(--mdui-color-surface-container); border-radius: 8px;"
+          />
         </div>
 
         <!-- 信息 -->
