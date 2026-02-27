@@ -105,7 +105,10 @@ function openDetail(share: any) {
 // 关闭详情弹窗
 function closeDetail() {
   showDetailDialog.value = false
-  selectedShare.value = null
+  // 延迟清空数据，等待动画完成
+  setTimeout(() => {
+    selectedShare.value = null
+  }, 300)
 }
 
 // 删除分享
