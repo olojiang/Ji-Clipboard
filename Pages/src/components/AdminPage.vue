@@ -752,9 +752,6 @@ async function deleteShare(shareId: string) {
 
 .user-info-card {
   margin-bottom: 16px;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .user-info-header {
@@ -802,9 +799,6 @@ async function deleteShare(shareId: string) {
 
 .stats-overview-card {
   margin-bottom: 16px;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .stats-grid {
@@ -839,22 +833,13 @@ async function deleteShare(shareId: string) {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .detail-content {
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .detail-list-card {
   margin-bottom: 16px;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .share-visibility-tag {
