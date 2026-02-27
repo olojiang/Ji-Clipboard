@@ -8,7 +8,7 @@ const props = defineProps<{
   fileInfo?: any
 }>()
 
-const emit = defineEmits(['close', 'shareCreated'])
+const emit = defineEmits(['close', 'shareCreated', 'showToast'])
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
 
@@ -104,15 +104,15 @@ function copyShareUrl() {
   if (!shareResult.value) return
   
   navigator.clipboard.writeText(shareResult.value.shareUrl).then(() => {
-    // 可以显示一个提示
+    emit('showToast', '分享链接已复制')
   }).catch(() => {
-    // 降级方案
     const input = document.createElement('input')
     input.value = shareResult.value!.shareUrl
     document.body.appendChild(input)
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
+    emit('showToast', '分享链接已复制')
   })
 }
 
@@ -128,7 +128,7 @@ function copyShareCode() {
   
   navigator.clipboard.writeText(shareResult.value.id).then(() => {
     console.log('[ShareDialog] 复制成功')
-    alert('分享码已复制: ' + shareResult.value.id)
+    emit('showToast', '分享码已复制')
   }).catch((err) => {
     console.log('[ShareDialog] 复制失败:', err)
     const input = document.createElement('input')
@@ -137,7 +137,7 @@ function copyShareCode() {
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
-    alert('分享码已复制: ' + shareResult.value.id)
+    emit('showToast', '分享码已复制')
   })
 }
 

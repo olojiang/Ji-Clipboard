@@ -1030,6 +1030,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
         :file-info="shareFileInfo"
         @close="showShareDialog = false"
         @share-created="emit('showToast', '分享创建成功')"
+        @show-toast="emit('showToast', $event)"
       />
 
       <!-- 批量分享弹窗 -->
@@ -1039,6 +1040,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
         :type="batchShareType"
         @close="closeBatchShareDialog"
         @share-created="onBatchShareCreated"
+        @show-toast="emit('showToast', $event)"
       />
 
       <!-- 添加剪贴板弹窗 -->
