@@ -840,6 +840,9 @@ async function deleteShare(shareId: string) {
 
 .detail-list-card {
   margin-bottom: 16px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .share-visibility-tag {
