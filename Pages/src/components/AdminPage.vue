@@ -530,7 +530,7 @@ async function deleteShare(shareId: string) {
             <div class="image-grid">
               <div v-for="image in userDetail.storage.images" :key="image.id" class="image-item">
                 <div class="image-wrapper">
-                  <img :src="image.url" :alt="image.name || image.filename" @error="$event.target.src = '/placeholder-image.png'" />
+                  <img :src="image.url || image.publicUrl || image.previewUrl" :alt="image.name || image.filename" @error="$event.target.style.display='none'" />
                   <mdui-button-icon
                     icon="delete"
                     class="delete-image-btn"
