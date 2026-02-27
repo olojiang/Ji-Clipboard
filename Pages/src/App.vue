@@ -186,6 +186,7 @@ function handleUndo() {
       <StoragePage
         v-else-if="currentTab === 'storage'"
         @show-toast="showToastMessage"
+        @back="currentTab = 'profile'"
       />
 
       <!-- 个人中心页面 -->

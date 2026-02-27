@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 
-const emit = defineEmits(['showToast'])
+const emit = defineEmits(['showToast', 'back'])
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
 
@@ -171,6 +171,7 @@ onMounted(() => {
   <div class="storage-page">
     <!-- 页面标题 -->
     <div class="page-header">
+      <mdui-button-icon icon="arrow_back" @click="$emit('back')"></mdui-button-icon>
       <h2 class="page-title">存储管理</h2>
       <mdui-button variant="text" @click="fetchStorageInfo" :loading="isLoading">
         <mdui-icon slot="icon" name="refresh"></mdui-icon>
