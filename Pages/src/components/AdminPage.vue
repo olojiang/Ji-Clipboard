@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import ClipboardItem from './ClipboardItem.vue'
 
 const emit = defineEmits(['showToast'])
 
@@ -342,6 +343,12 @@ async function deleteShare(shareId: string) {
                 <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
               </div>
               <div class="share-text">{{ share.content }}</div>
+              <!-- 使用统一的剪贴板项组件 -->
+              <ClipboardItem
+                :item="share"
+                :show-actions="false"
+                class="share-clipboard-item"
+              />
               <div class="share-date">{{ formatDate(share.createdAt) }}</div>
             </div>
             <mdui-button-icon
