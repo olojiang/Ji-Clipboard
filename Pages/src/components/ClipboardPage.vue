@@ -33,6 +33,11 @@ const clipboardsError = ref('')
 const isMultiSelectMode = ref(false)
 const selectedItems = ref<Set<number>>(new Set())
 
+// 批量分享弹窗状态
+const showBatchShareDialog = ref(false)
+const batchShareContent = ref('')
+const batchShareType = ref('text')
+
 // 删除恢复状态
 const lastDeletedItem = ref<{ content: string; createdAt: number; index: number } | null>(null)
 
@@ -573,6 +578,63 @@ async function deleteSelected() {
   emit('showToast', `已删除 ${indices.length} 项`)
 }
 
+// 批量分享选中的项目
+function shareSelected() {
+  const indices = Array.from(selectedItems.value).sort((a, b) => a - b)
+  const selectedContents: string[] = []
+  let hasImage = false
+  let hasFile = false
+  let hasText = false
+  
+  for (const index of indices) {
+    const item = myClipboards.value[index]
+    if (item) {
+      if (item.type === 'image') {
+        hasImage = true
+        selectedContents.push(`[图片] ${item.content.substring(0, 50)}...`)
+      } else if (item.type === 'file') {
+        hasFile = true
+        try {
+          const fileInfo = JSON.parse(item.content)
+          selectedContents.push(`[文件] ${fileInfo.originalName || '未知文件'}`)
+        } catch {
+          selectedContents.push('[文件]')
+        }
+      } else {
+        hasText = true
+        selectedContents.push(item.content)
+      }
+    }
+  }
+  
+  // 组合分享内容
+  batchShareContent.value = selectedContents.join('\n---\n')
+  
+  // 确定分享类型
+  if (hasImage && !hasFile && !hasText) {
+    batchShareType.value = 'image'
+  } else if (hasFile && !hasImage && !hasText) {
+    batchShareType.value = 'file'
+  } else {
+    batchShareType.value = 'text'
+  }
+  
+  showBatchShareDialog.value = true
+}
+
+// 关闭批量分享弹窗
+function closeBatchShareDialog() {
+  showBatchShareDialog.value = false
+  batchShareContent.value = ''
+}
+
+// 批量分享创建成功
+function onBatchShareCreated() {
+  selectedItems.value.clear()
+  isMultiSelectMode.value = false
+  emit('showToast', '批量分享创建成功')
+}
+
 // 触摸开始 - 仅处理滑动，不处理长按（长按由 handleBodyTouchStart 处理）
 function handleTouchStart(event: TouchEvent, item: any, index: number) {
   console.log('[TouchStart] index:', index, 'isMultiSelectMode:', isMultiSelectMode.value)
@@ -816,6 +878,10 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
         <span>已选择 {{ selectedItems.size }} 项</span>
         <div class="toolbar-actions">
           <mdui-button variant="text" @click="exitMultiSelectMode">取消</mdui-button>
+          <mdui-button variant="outlined" @click="shareSelected" :disabled="selectedItems.size === 0">
+            <mdui-icon slot="icon" name="share"></mdui-icon>
+            分享
+          </mdui-button>
           <mdui-button variant="filled" @click="deleteSelected" :disabled="selectedItems.size === 0">删除</mdui-button>
         </div>
       </div>
@@ -964,6 +1030,15 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
         :file-info="shareFileInfo"
         @close="showShareDialog = false"
         @share-created="emit('showToast', '分享创建成功')"
+      />
+
+      <!-- 批量分享弹窗 -->
+      <ShareDialog
+        :open="showBatchShareDialog"
+        :content="batchShareContent"
+        :type="batchShareType"
+        @close="closeBatchShareDialog"
+        @share-created="onBatchShareCreated"
       />
 
       <!-- 添加剪贴板弹窗 -->
