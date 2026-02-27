@@ -532,8 +532,10 @@ async function deleteShare(shareId: string) {
 .content-card {
   margin-bottom: 16px;
   max-width: 800px;
+  width: 100%;
   margin-left: auto;
   margin-right: auto;
+  box-sizing: border-box;
 }
 
 .card-header {
