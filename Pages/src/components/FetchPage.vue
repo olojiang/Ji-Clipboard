@@ -19,38 +19,44 @@ function parseBatchShareContent(content: string): Array<{ type: string; content:
   if (!content) return []
 
   // 检查是否是批量分享（包含分隔符 ---）
-  if (!content.includes('\n---\n')) {
+  if (!content.includes('\n---\n') && !content.includes('---')) {
     // 单个分享
     return [{ type: fetchedType.value, content }]
   }
 
-  // 批量分享，按分隔符分割
-  const items = content.split('\n---\n')
+  // 批量分享，按分隔符分割（支持多种格式）
+  const separator = content.includes('\n---\n') ? '\n---\n' : '---'
+  const items = content.split(separator)
+  
   return items.map(item => {
     const trimmed = item.trim()
-    // 判断类型
-    if (trimmed.startsWith('[图片]')) {
-      const imageContent = trimmed.substring(4).trim()
+    if (!trimmed) return null
+    
+    // 判断类型 - 支持 [图片] 或 图片: 格式
+    if (trimmed.startsWith('[图片]') || trimmed.startsWith('图片:') || trimmed.startsWith('图片：')) {
+      const imageContent = trimmed.replace(/^\[图片\]|^图片[:：]/, '').trim()
       // 尝试解析图片 JSON 数组
       let imageUrls: string[] = []
       try {
         const parsed = JSON.parse(imageContent)
         if (Array.isArray(parsed)) {
           imageUrls = parsed
+        } else if (typeof parsed === 'string') {
+          imageUrls = [parsed]
         }
       } catch (e) {
-        // 如果不是 JSON，可能是单个 URL
+        // 如果不是 JSON，可能是单个 URL 或逗号分隔的 URLs
         if (imageContent.startsWith('http')) {
-          imageUrls = [imageContent]
+          imageUrls = imageContent.split(',').map(u => u.trim()).filter(u => u.startsWith('http'))
         }
       }
       return { type: 'image', content: imageContent, imageUrls }
-    } else if (trimmed.startsWith('[文件]')) {
-      return { type: 'file', content: trimmed.substring(4).trim() }
+    } else if (trimmed.startsWith('[文件]') || trimmed.startsWith('文件:') || trimmed.startsWith('文件：')) {
+      return { type: 'file', content: trimmed.replace(/^\[文件\]|^文件[:：]/, '').trim() }
     } else {
       return { type: 'text', content: trimmed }
     }
-  })
+  }).filter(Boolean) as Array<{ type: string; content: string; imageUrls?: string[] }>
 }
 
 // 获取相关状态
