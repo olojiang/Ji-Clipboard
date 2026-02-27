@@ -1022,9 +1022,16 @@ async function handleCreateShare(request, env, corsHeaders) {
   const userSharesKey = `user_shares_list:${userId}`;
   const existingShares = await env.CLIPBOARD_KV.get(userSharesKey);
   const shares = existingShares ? JSON.parse(existingShares) : [];
+  
+  // 对于图片和文件类型，保留完整内容以便正确显示
+  let displayContent = content.trim();
+  if (type !== 'image' && type !== 'file' && type !== 'IMAGE' && type !== 'FILE') {
+    displayContent = content.trim().substring(0, 100) + (content.length > 100 ? '...' : '');
+  }
+  
   shares.push({
     id: shareCode,
-    content: content.trim().substring(0, 100) + (content.length > 100 ? '...' : ''),
+    content: displayContent,
     type: type || 'text',
     visibility,
     createdAt: now,
