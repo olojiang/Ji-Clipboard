@@ -211,7 +211,7 @@ function handleUndo() {
     <!-- 底部导航栏 -->
     <mdui-navigation-bar 
       class="bottom-nav"
-      :value="currentTab"
+      :value="currentTab === 'storage' ? 'profile' : currentTab"
       @change="(e: any) => switchTab(e.target.value)"
     >
       <mdui-navigation-bar-item icon="content_paste" value="clipboard">剪贴板</mdui-navigation-bar-item>
