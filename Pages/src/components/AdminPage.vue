@@ -16,11 +16,12 @@ const sharesLoading = ref(false)
 const storageStats = ref<any>(null)
 const storageLoading = ref(false)
 
-// 用户详情弹窗
+// 用户详情页面
 const showUserDetail = ref(false)
 const selectedUser = ref<any>(null)
 const userDetailLoading = ref(false)
 const userDetail = ref<any>(null)
+const userDetailTab = ref('shares') // 'shares' | 'storage'
 
 // 页面加载时获取数据
 onMounted(() => {
@@ -140,6 +141,7 @@ function switchTab(tab: string) {
 async function viewUserDetail(user: any) {
   selectedUser.value = user
   showUserDetail.value = true
+  userDetailTab.value = 'shares'
   userDetailLoading.value = true
   
   try {
@@ -169,11 +171,17 @@ async function viewUserDetail(user: any) {
   }
 }
 
+// 切换用户详情标签
+function switchUserDetailTab(tab: string) {
+  userDetailTab.value = tab
+}
+
 // 关闭用户详情
 function closeUserDetail() {
   showUserDetail.value = false
   selectedUser.value = null
   userDetail.value = null
+  userDetailTab.value = 'shares'
 }
 
 // 删除分享
@@ -350,78 +358,144 @@ async function deleteShare(shareId: string) {
       </mdui-card>
     </div>
 
-    <!-- 用户详情弹窗 -->
-    <mdui-dialog :open="showUserDetail" @close="closeUserDetail" class="user-detail-dialog">
-      <div v-if="userDetailLoading" class="dialog-loading">
+    <!-- 用户详情全屏页面 -->
+    <div v-if="showUserDetail" class="user-detail-page">
+      <!-- 页面头部 -->
+      <div class="user-detail-page-header">
+        <mdui-button-icon icon="arrow_back" @click="closeUserDetail"></mdui-button-icon>
+        <span class="user-detail-page-title">用户详情</span>
+        <div style="width: 40px;"></div>
+      </div>
+
+      <!-- 加载中 -->
+      <div v-if="userDetailLoading" class="user-detail-loading">
         <div class="spinner"></div>
         <p>正在加载用户详情...</p>
       </div>
-      
-      <div v-else-if="userDetail" class="user-detail-content">
-        <div class="user-detail-header">
-          <img v-if="userDetail.user?.userAvatar" :src="userDetail.user.userAvatar" class="detail-avatar" alt="avatar" />
-          <mdui-icon v-else name="person" class="detail-avatar-placeholder"></mdui-icon>
-          <div class="user-detail-info">
-            <h3>@{{ userDetail.user?.userLogin }}</h3>
-            <p v-if="userDetail.user?.userName">{{ userDetail.user.userName }}</p>
-            <p v-if="userDetail.user?.userEmail" class="user-email">{{ userDetail.user.userEmail }}</p>
-          </div>
-        </div>
 
-        <mdui-divider></mdui-divider>
-
-        <div class="detail-section">
-          <h4>存储统计</h4>
-          <div class="detail-stats">
-            <div class="detail-stat-item">
-              <span class="detail-stat-value">{{ formatFileSize(userDetail.storage?.totalSize || 0) }}</span>
-              <span class="detail-stat-label">总存储</span>
-            </div>
-            <div class="detail-stat-item">
-              <span class="detail-stat-value">{{ userDetail.storage?.imagesCount || 0 }}</span>
-              <span class="detail-stat-label">图片</span>
-            </div>
-            <div class="detail-stat-item">
-              <span class="detail-stat-value">{{ userDetail.storage?.filesCount || 0 }}</span>
-              <span class="detail-stat-label">文件</span>
-            </div>
-            <div class="detail-stat-item">
-              <span class="detail-stat-value">{{ userDetail.shares?.length || 0 }}</span>
-              <span class="detail-stat-label">分享</span>
+      <!-- 用户详情内容 -->
+      <div v-else-if="userDetail" class="user-detail-page-content">
+        <!-- 用户信息卡片 -->
+        <mdui-card class="user-info-card">
+          <div class="user-info-header">
+            <img v-if="userDetail.user?.userAvatar" :src="userDetail.user.userAvatar" class="user-avatar-large" alt="avatar" />
+            <mdui-icon v-else name="person" class="user-avatar-large-placeholder"></mdui-icon>
+            <div class="user-info-text">
+              <h3>@{{ userDetail.user?.userLogin }}</h3>
+              <p v-if="userDetail.user?.userName">{{ userDetail.user.userName }}</p>
+              <p v-if="userDetail.user?.userEmail" class="user-email">{{ userDetail.user.userEmail }}</p>
             </div>
           </div>
+        </mdui-card>
+
+        <!-- 统计概览 -->
+        <mdui-card class="stats-overview-card">
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-box-value">{{ formatFileSize(userDetail.storage?.totalSize || 0) }}</span>
+              <span class="stat-box-label">总存储</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-box-value">{{ userDetail.storage?.imagesCount || 0 }}</span>
+              <span class="stat-box-label">图片</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-box-value">{{ userDetail.storage?.filesCount || 0 }}</span>
+              <span class="stat-box-label">文件</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-box-value">{{ userDetail.shares?.length || 0 }}</span>
+              <span class="stat-box-label">分享</span>
+            </div>
+          </div>
+        </mdui-card>
+
+        <!-- 标签切换 -->
+        <div class="detail-tabs">
+          <mdui-chip
+            :selected="userDetailTab === 'shares'"
+            @click="switchUserDetailTab('shares')"
+            style="cursor: pointer;"
+          >
+            <mdui-icon slot="icon" name="share"></mdui-icon>
+            分享 ({{ userDetail.shares?.length || 0 }})
+          </mdui-chip>
+          <mdui-chip
+            :selected="userDetailTab === 'storage'"
+            @click="switchUserDetailTab('storage')"
+            style="cursor: pointer;"
+          >
+            <mdui-icon slot="icon" name="folder"></mdui-icon>
+            存储
+          </mdui-chip>
         </div>
 
-        <mdui-divider></mdui-divider>
-
-        <div class="detail-section">
-          <h4>用户分享 ({{ userDetail.shares?.length || 0 }})</h4>
-          <div v-if="!userDetail.shares || userDetail.shares.length === 0" class="empty-shares">
+        <!-- 分享列表 -->
+        <div v-if="userDetailTab === 'shares'" class="detail-content">
+          <div v-if="!userDetail.shares || userDetail.shares.length === 0" class="empty-state">
+            <mdui-icon name="inbox" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
             <p>暂无分享</p>
           </div>
-          <mdui-list v-else class="detail-shares-list">
-            <mdui-list-item
-              v-for="share in userDetail.shares"
-              :key="share.id"
-              class="detail-share-item"
-            >
-              <div slot="headline">
-                <mdui-chip size="small" variant="outlined" style="font-family: monospace;"
-                  >{{ share.id }}</mdui-chip>
+          <mdui-card v-else class="detail-list-card">
+            <mdui-list>
+              <mdui-list-item
+                v-for="share in userDetail.shares"
+                :key="share.id"
+              >
+                <div slot="headline">
+                  <mdui-chip size="small" variant="outlined" style="font-family: monospace;"
+                    >{{ share.id }}</mdui-chip>
+                  <span class="share-visibility-tag">{{ getVisibilityText(share.visibility) }}</span>
+                </div>
+                <div slot="description" class="share-description">
+                  <span class="share-content-preview">{{ share.content?.substring(0, 100) }}{{ share.content?.length > 100 ? '...' : '' }}</span>
+                  <span class="share-time">{{ formatDate(share.createdAt) }}</span>
+                </div>
+              </mdui-list-item>
+            </mdui-list>
+          </mdui-card>
+        </div>
+
+        <!-- 存储列表 -->
+        <div v-else-if="userDetailTab === 'storage'" class="detail-content">
+          <!-- 图片列表 -->
+          <mdui-card v-if="userDetail.storage?.images && userDetail.storage.images.length > 0" class="detail-list-card">
+            <div class="card-header">
+              <span class="card-title">图片 ({{ userDetail.storage.images.length }})</span>
+            </div>
+            <div class="image-grid">
+              <div v-for="image in userDetail.storage.images" :key="image.id" class="image-item">
+                <img :src="image.url" :alt="image.name" />
+                <span class="image-name">{{ image.name }}</span>
+                <span class="image-size">{{ formatFileSize(image.size) }}</span>
               </div>
-              <div slot="description" class="share-desc">
-                <span class="share-content-text">{{ share.content?.substring(0, 50) }}{{ share.content?.length > 50 ? '...' : '' }}</span>
-                <span class="share-date">{{ formatDate(share.createdAt) }}</span>
-              </div>
-            </mdui-list-item>
-          </mdui-list>
+            </div>
+          </mdui-card>
+
+          <!-- 文件列表 -->
+          <mdui-card v-if="userDetail.storage?.files && userDetail.storage.files.length > 0" class="detail-list-card">
+            <div class="card-header">
+              <span class="card-title">文件 ({{ userDetail.storage.files.length }})</span>
+            </div>
+            <mdui-list>
+              <mdui-list-item
+                v-for="file in userDetail.storage.files"
+                :key="file.id"
+              >
+                <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
+                <div slot="headline">{{ file.name }}</div>
+                <div slot="description">{{ formatFileSize(file.size) }} · {{ formatDate(file.uploadedAt) }}</div>
+              </mdui-list-item>
+            </mdui-list>
+          </mdui-card>
+
+          <div v-if="(!userDetail.storage?.images || userDetail.storage.images.length === 0) && (!userDetail.storage?.files || userDetail.storage.files.length === 0)" class="empty-state">
+            <mdui-icon name="folder_open" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
+            <p>暂无存储内容</p>
+          </div>
         </div>
       </div>
-      
-      <div slot="action">
-        <mdui-button @click="closeUserDetail">关闭</mdui-button>
-      </div>
-    </mdui-dialog>
+    </div>
   </div>
 </template>
 
@@ -457,6 +531,9 @@ async function deleteShare(shareId: string) {
 
 .content-card {
   margin-bottom: 16px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .card-header {
@@ -617,7 +694,228 @@ async function deleteShare(shareId: string) {
   margin-top: 4px;
 }
 
-/* 用户详情弹窗 */
+/* 用户详情全屏页面 */
+.user-detail-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mdui-color-surface-container-low);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.user-detail-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--mdui-color-surface);
+  border-bottom: 1px solid var(--mdui-color-surface-container-highest);
+}
+
+.user-detail-page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--mdui-color-on-surface);
+}
+
+.user-detail-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.user-detail-page-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.user-info-card {
+  margin-bottom: 16px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.user-info-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+.user-avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-avatar-large-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--mdui-color-surface-container-highest);
+  color: var(--mdui-color-on-surface-variant);
+  font-size: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-info-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  color: var(--mdui-color-on-surface);
+}
+
+.user-info-text p {
+  margin: 0;
+  color: var(--mdui-color-on-surface-variant);
+  font-size: 14px;
+}
+
+.user-info-text .user-email {
+  color: var(--mdui-color-primary);
+  font-size: 13px;
+}
+
+.stats-overview-card {
+  margin-bottom: 16px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  background: var(--mdui-color-surface-container);
+  border-radius: 8px;
+}
+
+.stat-box-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--mdui-color-primary);
+}
+
+.stat-box-label {
+  font-size: 12px;
+  color: var(--mdui-color-on-surface-variant);
+  margin-top: 4px;
+}
+
+.detail-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.detail-content {
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.detail-list-card {
+  margin-bottom: 16px;
+}
+
+.share-visibility-tag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: var(--mdui-color-primary-container);
+  border-radius: 4px;
+  color: var(--mdui-color-on-primary-container);
+  font-size: 11px;
+}
+
+.share-description {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-content-preview {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-time {
+  font-size: 12px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.image-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.image-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.image-name {
+  font-size: 11px;
+  color: var(--mdui-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.image-size {
+  font-size: 10px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+@media (max-width: 600px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .image-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 旧样式保留 */
 .user-detail-dialog {
   max-width: 500px;
   width: 90vw;
@@ -746,7 +1044,7 @@ async function deleteShare(shareId: string) {
   .stats-summary {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .detail-stats {
     grid-template-columns: repeat(2, 1fr);
   }
