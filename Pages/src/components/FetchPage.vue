@@ -420,13 +420,25 @@ function closeNotFoundDialog() {
             <!-- 图片类型 -->
             <div v-else-if="item.type === 'image'" class="image-share-content">
               <div class="image-grid">
+                <!-- 尝试解析为 JSON 数组 -->
+                <template v-if="parseImageContent(item.content).length > 0">
+                  <img
+                    v-for="(url, imgIndex) in parseImageContent(item.content)"
+                    :key="imgIndex"
+                    :src="url"
+                    class="share-image"
+                    @click="window.open(url, '_blank')"
+                  >
+                </template>
+                <!-- 如果不是 JSON，直接作为 URL 显示 -->
                 <img
-                  v-for="(url, imgIndex) in parseImageContent(item.content)"
-                  :key="imgIndex"
-                  :src="url"
+                  v-else-if="item.content.startsWith('http')"
+                  :src="item.content"
                   class="share-image"
-                  @click="window.open(url, '_blank')"
+                  @click="window.open(item.content, '_blank')"
                 >
+                <!-- 否则显示原始内容 -->
+                <pre v-else style="white-space: pre-wrap; word-break: break-all;">{{ item.content }}</pre>
               </div>
             </div>
 
