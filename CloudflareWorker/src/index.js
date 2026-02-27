@@ -1,6 +1,15 @@
 // Cloudflare Worker - GitHub OAuth + KV 存储
 // 环境变量: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, JWT_SECRET
 
+// 生成 UUID v4
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -72,6 +81,9 @@ export default {
         }
         if (request.method === 'PUT') {
           return handleRestoreClipboardItem(request, env, corsHeaders);
+        }
+        if (request.method === 'GET') {
+          return handleGetClipboardItemByUUID(request, env, corsHeaders);
         }
       }
 
@@ -547,7 +559,39 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
     return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
   }
 
-  // 从 KV 获取用户的剪贴板列表
+  // 尝试获取新的 UUID 格式数据
+  const userRefsKey = `user_clipboard_refs:${userId}`;
+  const refsData = await env.CLIPBOARD_KV.get(userRefsKey);
+  
+  if (refsData) {
+    // 新格式：通过 UUID 获取每个剪贴板项
+    const refs = JSON.parse(refsData);
+    const items = [];
+    
+    for (const itemId of refs) {
+      const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${itemId}`);
+      if (itemData) {
+        const item = JSON.parse(itemData);
+        if (!item.isDeleted) {
+          items.push({
+            id: item.id,
+            content: item.content,
+            type: item.type,
+            createdAt: item.createdAt
+          });
+        }
+      }
+    }
+    
+    // 按创建时间倒序排列
+    items.sort((a, b) => b.createdAt - a.createdAt);
+    
+    return jsonResponse({
+      items,
+    }, 200, corsHeaders);
+  }
+
+  // 兼容旧格式
   const userClipboardKey = `user_clipboard:${userId}`;
   const clipboardData = await env.CLIPBOARD_KV.get(userClipboardKey);
   let items = clipboardData ? JSON.parse(clipboardData) : [];
@@ -609,20 +653,44 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
     return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
   }
 
-  // 从 KV 获取现有的剪贴板列表
+  // 生成 UUID
+  const itemId = generateUUID();
+  const now = Date.now();
+
+  // 创建剪贴板项（使用新的 UUID 格式）
+  const newItem = {
+    id: itemId,
+    userId: userId,
+    content: content.trim(),
+    type: type || 'text',
+    createdAt: createdAt || now,
+    updatedAt: now,
+    isDeleted: false
+  };
+
+  // 保存剪贴板项（30天过期）
+  await env.CLIPBOARD_KV.put(`clipboard_item:${itemId}`, JSON.stringify(newItem), {
+    expirationTtl: 30 * 24 * 60 * 60,
+  });
+
+  // 更新用户的剪贴板引用列表
+  const userRefsKey = `user_clipboard_refs:${userId}`;
+  const existingRefs = await env.CLIPBOARD_KV.get(userRefsKey);
+  const refs = existingRefs ? JSON.parse(existingRefs) : [];
+  refs.unshift(itemId); // 添加到开头（最新的在前面）
+  await env.CLIPBOARD_KV.put(userRefsKey, JSON.stringify(refs), {
+    expirationTtl: 30 * 24 * 60 * 60,
+  });
+
+  // 同时兼容旧格式（为了平滑过渡）
   const userClipboardKey = `user_clipboard:${userId}`;
   const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
   const items = existingData ? JSON.parse(existingData) : [];
-
-  // 添加新项目（如果是撤回操作，使用传入的 createdAt）
-  const newItem = {
+  items.push({
     content: content.trim(),
     type: type || 'text',
-    createdAt: createdAt || Date.now(),
-  };
-  items.push(newItem);
-
-  // 保存回 KV（7天过期）
+    createdAt: createdAt || now,
+  });
   await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
     expirationTtl: 7 * 24 * 60 * 60,
   });
@@ -630,6 +698,37 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
   return jsonResponse({
     success: true,
     item: newItem
+  }, 200, corsHeaders);
+}
+
+// 通过 UUID 获取剪贴板项
+async function handleGetClipboardItemByUUID(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const uuid = url.pathname.split('/').pop();
+
+  if (!uuid || !uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
+    return jsonResponse({ error: 'Invalid UUID format' }, 400, corsHeaders);
+  }
+
+  // 获取剪贴板项
+  const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${uuid}`);
+  if (!itemData) {
+    return jsonResponse({ error: 'Item not found' }, 404, corsHeaders);
+  }
+
+  const item = JSON.parse(itemData);
+
+  // 检查是否已删除
+  if (item.isDeleted) {
+    return jsonResponse({ error: 'Item has been deleted' }, 404, corsHeaders);
+  }
+
+  // 可选：检查权限（如果需要私有访问）
+  // 目前允许任何人通过 UUID 访问
+
+  return jsonResponse({
+    success: true,
+    item
   }, 200, corsHeaders);
 }
 
@@ -989,10 +1088,11 @@ async function handleCreateShare(request, env, corsHeaders) {
   }
 
   const body = await request.json();
-  const { content, type = 'text', fileInfo, visibility = 'public', expireHours = 24 } = body;
+  const { itemIds, visibility = 'public', expireHours = 24 } = body;
 
-  if (!content || !content.trim()) {
-    return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
+  // 支持新的 itemIds 数组格式或旧的 content 字符串格式
+  if ((!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) && (!body.content || !body.content.trim())) {
+    return jsonResponse({ error: 'itemIds or content is required' }, 400, corsHeaders);
   }
 
   // 生成5位分享码
@@ -1002,17 +1102,19 @@ async function handleCreateShare(request, env, corsHeaders) {
   const now = Date.now();
   const expiresAt = now + expireHours * 60 * 60 * 1000;
 
-  // 创建分享数据
+  // 创建分享数据（新格式）
   const shareData = {
     id: shareCode,
-    content: content.trim(),
-    type: type || 'text',
-    fileInfo: fileInfo || null,
+    itemIds: itemIds || [], // 剪贴板项 UUID 数组
     visibility, // 'public' | 'authenticated' | 'private'
     ownerId: userId,
     ownerLogin: userLogin,
     createdAt: now,
     expiresAt,
+    // 兼容旧格式
+    content: body.content || '',
+    type: body.type || 'text',
+    fileInfo: body.fileInfo || null,
   };
 
   // 保存到 KV
@@ -1025,16 +1127,9 @@ async function handleCreateShare(request, env, corsHeaders) {
   const existingShares = await env.CLIPBOARD_KV.get(userSharesKey);
   const shares = existingShares ? JSON.parse(existingShares) : [];
   
-  // 对于图片和文件类型，保留完整内容以便正确显示
-  let displayContent = content.trim();
-  if (type !== 'image' && type !== 'file' && type !== 'IMAGE' && type !== 'FILE') {
-    displayContent = content.trim().substring(0, 100) + (content.length > 100 ? '...' : '');
-  }
-  
   shares.push({
     id: shareCode,
-    content: displayContent,
-    type: type || 'text',
+    itemCount: itemIds ? itemIds.length : 1,
     visibility,
     createdAt: now,
     expiresAt,
@@ -1050,7 +1145,7 @@ async function handleCreateShare(request, env, corsHeaders) {
     success: true,
     share: {
       id: shareCode,
-      content: content.trim(),
+      itemIds: itemIds || [],
       visibility,
       createdAt: now,
       expiresAt,
@@ -1140,21 +1235,43 @@ async function handleGetShare(request, env, corsHeaders) {
   }
   // public: 任何人可访问，无需检查
 
-  // 推断类型（兼容旧分享）
-  let shareType = share.type;
-  if (!shareType) {
-    if (share.content && share.content.startsWith('[') && share.content.includes('http')) {
-      shareType = 'image';
-    } else if (share.fileInfo) {
-      shareType = 'file';
-    } else {
-      shareType = 'text';
+  // 新格式：通过 itemIds 获取剪贴板项详情
+  let items = [];
+  if (share.itemIds && share.itemIds.length > 0) {
+    for (const itemId of share.itemIds) {
+      const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${itemId}`);
+      if (itemData) {
+        const item = JSON.parse(itemData);
+        if (!item.isDeleted) {
+          items.push({
+            id: item.id,
+            content: item.content,
+            type: item.type,
+            createdAt: item.createdAt
+          });
+        }
+      }
     }
+  }
+
+  // 兼容旧格式
+  let shareType = share.type;
+  if (!shareType && items.length > 0) {
+    // 从 items 推断类型
+    const hasImage = items.some(i => i.type === 'image');
+    const hasFile = items.some(i => i.type === 'file');
+    const hasText = items.some(i => i.type === 'text');
+    if (hasImage && !hasFile && !hasText) shareType = 'image';
+    else if (hasFile && !hasImage && !hasText) shareType = 'file';
+    else shareType = 'text';
+  } else if (!shareType) {
+    shareType = 'text';
   }
 
   return jsonResponse({
     id: share.id,
-    content: share.content,
+    items: items, // 新的剪贴板项数组
+    content: share.content, // 兼容旧格式
     type: shareType,
     fileInfo: share.fileInfo || null,
     visibility: share.visibility,

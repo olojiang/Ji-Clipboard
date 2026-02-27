@@ -19,6 +19,7 @@ const isAddingClipboard = ref(false)
 const clipboardError = ref('')
 const showAddClipboardDialog = ref(false)
 const myClipboards = ref<Array<{
+  id: string  // UUID
   content: string
   type?: string
   createdAt: number
@@ -37,6 +38,7 @@ const selectedItems = ref<Set<number>>(new Set())
 const showBatchShareDialog = ref(false)
 const batchShareContent = ref('')
 const batchShareType = ref('text')
+const batchShareItemIds = ref<string[]>([])
 
 // 删除恢复状态
 const lastDeletedItem = ref<{ content: string; createdAt: number; index: number } | null>(null)
@@ -233,7 +235,7 @@ async function handleAddFileClipboard(fileInfo: { id: string; url: string; origi
 // 获取剪贴板列表
 async function fetchMyClipboards() {
   if (!props.user.loggedIn) return
-  
+
   clipboardsLoading.value = true
   clipboardsError.value = ''
 
@@ -364,7 +366,7 @@ async function deleteClipboard(index: number, showUndoToast: boolean = true) {
     }
 
     await fetchMyClipboards()
-    
+
     // 显示带撤回按钮的提示
     if (showUndoToast) {
       emit('showToast', '已删除', true)
@@ -425,10 +427,10 @@ function isHttpLink(content: string): boolean {
 function handleLongPress(event: TouchEvent | MouseEvent, item: any, index: number) {
   // 阻止默认的上下文菜单（特别是在移动端）
   event.preventDefault()
-  
+
   console.log('[LongPress] 显示菜单', item)
   contextMenuItem.value = { ...item, index }
-  
+
   // 获取触摸/点击位置
   if ('touches' in event && event.touches.length > 0) {
     contextMenuPosition.value = {
@@ -441,7 +443,7 @@ function handleLongPress(event: TouchEvent | MouseEvent, item: any, index: numbe
       y: event.clientY
     }
   }
-  
+
   showContextMenu.value = true
 }
 
@@ -477,12 +479,12 @@ const TOUCH_MOVE_THRESHOLD = 10 // 移动超过10px取消长按
 
 function handleBodyTouchStart(event: TouchEvent, item: any, index: number) {
   if (isMultiSelectMode.value) return
-  
+
   const touch = event.touches[0]
   touchStartTime = Date.now()
   touchStartX = touch.clientX
   touchStartY = touch.clientY
-  
+
   // 使用独立的定时器，避免与滑动层的定时器冲突
   bodyLongPressTimer.value = window.setTimeout(() => {
     handleLongPress(event, item, index)
@@ -492,11 +494,11 @@ function handleBodyTouchStart(event: TouchEvent, item: any, index: number) {
 
 function handleBodyTouchMove(event: TouchEvent) {
   if (!bodyLongPressTimer.value) return
-  
+
   const touch = event.touches[0]
   const deltaX = Math.abs(touch.clientX - touchStartX)
   const deltaY = Math.abs(touch.clientY - touchStartY)
-  
+
   // 如果移动超过阈值，取消长按
   if (deltaX > TOUCH_MOVE_THRESHOLD || deltaY > TOUCH_MOVE_THRESHOLD) {
     clearTimeout(bodyLongPressTimer.value)
@@ -507,12 +509,12 @@ function handleBodyTouchMove(event: TouchEvent) {
 
 function handleBodyTouchEnd(event: TouchEvent, item: any, index: number) {
   const touchDuration = Date.now() - touchStartTime
-  
+
   if (bodyLongPressTimer.value) {
     clearTimeout(bodyLongPressTimer.value)
     bodyLongPressTimer.value = null
   }
-  
+
   // 如果触摸时间小于长按阈值，且不是多选模式，不执行任何操作（不弹出菜单）
   if (touchDuration < LONG_PRESS_DURATION && !isMultiSelectMode.value) {
     // 短按不执行任何操作
@@ -527,7 +529,7 @@ function handleIconClick(item: any, index: number) {
     toggleSelection(index)
     return
   }
-  
+
   if (isHttpLink(item.content)) {
     // 如果是链接，在新标签页打开
     window.open(item.content.trim(), '_blank')
@@ -558,7 +560,7 @@ function exitMultiSelectMode() {
 // 删除选中的项目
 async function deleteSelected() {
   const indices = Array.from(selectedItems.value).sort((a, b) => b - a)
-  
+
   for (const index of indices) {
     try {
       const sessionId = localStorage.getItem('session_id')
@@ -578,7 +580,7 @@ async function deleteSelected() {
       console.error('删除失败:', error)
     }
   }
-  
+
   selectedItems.value.clear()
   isMultiSelectMode.value = false
   await fetchMyClipboards()
@@ -588,36 +590,28 @@ async function deleteSelected() {
 // 批量分享选中的项目
 function shareSelected() {
   const indices = Array.from(selectedItems.value).sort((a, b) => a - b)
-  const selectedContents: string[] = []
+  const selectedIds: string[] = []
   let hasImage = false
   let hasFile = false
   let hasText = false
-  
+
   for (const index of indices) {
     const item = myClipboards.value[index]
-    if (item) {
+    if (item && item.id) {
+      selectedIds.push(item.id)
       if (item.type === 'image') {
         hasImage = true
-        // 使用完整图片内容，不要截断
-        selectedContents.push(`[图片] ${item.content}`)
       } else if (item.type === 'file') {
         hasFile = true
-        try {
-          const fileInfo = JSON.parse(item.content)
-          selectedContents.push(`[文件] ${fileInfo.originalName || '未知文件'}`)
-        } catch {
-          selectedContents.push('[文件]')
-        }
       } else {
         hasText = true
-        selectedContents.push(item.content)
       }
     }
   }
-  
-  // 组合分享内容
-  batchShareContent.value = selectedContents.join('\n---\n')
-  
+
+  // 存储选中的 itemIds
+  batchShareItemIds.value = selectedIds
+
   // 确定分享类型
   if (hasImage && !hasFile && !hasText) {
     batchShareType.value = 'image'
@@ -626,7 +620,7 @@ function shareSelected() {
   } else {
     batchShareType.value = 'text'
   }
-  
+
   showBatchShareDialog.value = true
 }
 
@@ -646,19 +640,19 @@ function onBatchShareCreated() {
 // 触摸开始 - 仅处理滑动，不处理长按（长按由 handleBodyTouchStart 处理）
 function handleTouchStart(event: TouchEvent, item: any, index: number) {
   console.log('[TouchStart] index:', index, 'isMultiSelectMode:', isMultiSelectMode.value)
-  
+
   // 如果已经在多选模式，直接返回
   if (isMultiSelectMode.value) {
     console.log('[TouchStart] 多选模式，跳过')
     return
   }
-  
+
   // 停止之前的动画
   if (animationFrame) {
     cancelAnimationFrame(animationFrame)
     animationFrame = null
   }
-  
+
   const touch = event.touches[0]
   swipeStartX.value = touch.clientX
   swipeStartY.value = touch.clientY
@@ -668,15 +662,15 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
   velocity.value = 0
   hasVibrated = false
   isScrolling = false
-  
+
   console.log('[TouchStart] startX:', swipeStartX.value, 'startY:', swipeStartY.value)
-  
+
   myClipboards.value.forEach(i => {
     i.swipeX = 0
     i.swipeLeft = false
     i.swipeRight = false
   })
-  
+
   // 注意：长按功能已移至 handleBodyTouchStart，这里只处理滑动
   // 避免在滑动层设置定时器，防止与内容层的长按菜单冲突
 }
@@ -685,18 +679,18 @@ function handleTouchStart(event: TouchEvent, item: any, index: number) {
 function handleTouchMove(event: TouchEvent, item: any) {
   // 如果已经在多选模式，不处理滑动
   if (isMultiSelectMode.value) return
-  
+
   // 如果正在垂直滚动，不处理滑动
   if (isScrolling) return
-  
+
   const touch = event.touches[0]
   const currentX = touch.clientX
   const currentY = touch.clientY
-  
+
   // 计算移动距离
   const totalDeltaX = Math.abs(currentX - swipeStartX.value)
   const totalDeltaY = Math.abs(currentY - swipeStartY.value)
-  
+
   // 如果垂直移动明显大于水平移动（2倍以上），认为是滚动
   if (totalDeltaY > totalDeltaX * 2 && totalDeltaY > TAP_THRESHOLD) {
     console.log('[TouchMove] 垂直滚动，取消长按')
@@ -713,7 +707,7 @@ function handleTouchMove(event: TouchEvent, item: any) {
     isScrolling = true
     return
   }
-  
+
   // 一旦开始水平移动，取消长按定时器
   if (totalDeltaX > TAP_THRESHOLD) {
     if (longPressTimer.value) {
@@ -726,33 +720,33 @@ function handleTouchMove(event: TouchEvent, item: any) {
       bodyLongPressTimer.value = null
     }
   }
-  
+
   const currentTime = Date.now()
   const moveDeltaX = currentX - lastX.value
   const deltaTime = currentTime - lastTime.value
   if (deltaTime > 0) {
     velocity.value = moveDeltaX / deltaTime * 16
   }
-  
+
   lastX.value = currentX
   lastY.value = currentY
   lastTime.value = currentTime
-  
+
   const diffX = currentX - swipeStartX.value
-  
+
   // 使用更柔和的阻力效果
   const maxSwipe = 120
   let swipeX = diffX
-  
+
   // 超出范围时添加阻力
   if (swipeX > maxSwipe) {
     swipeX = maxSwipe + (swipeX - maxSwipe) * 0.3
   } else if (swipeX < -maxSwipe) {
     swipeX = -maxSwipe + (swipeX + maxSwipe) * 0.3
   }
-  
+
   item.swipeX = swipeX
-  
+
   // 实时更新滑动方向指示
   if (diffX < -SWIPE_THRESHOLD) {
     if (!item.swipeLeft) {
@@ -794,7 +788,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  
+
   // 清理内容层的长按定时器（触摸结束时如果还没触发长按，就取消它）
   if (bodyLongPressTimer.value) {
     clearTimeout(bodyLongPressTimer.value)
@@ -932,13 +926,13 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
               <mdui-icon name="delete" style="font-size: 24px; color: white;"></mdui-icon>
               <span>删除</span>
             </div>
-            
+
             <!-- 右滑背景（多选）-->
             <div v-if="!isMultiSelectMode && item.swipeRight" class="swipe-bg swipe-bg-right">
               <mdui-icon name="check_box" style="font-size: 24px; color: white;"></mdui-icon>
               <span>多选</span>
             </div>
-            
+
             <!-- 内容层 -->
             <div class="swipe-content" :style="{ transform: `translateX(${item.swipeX || 0}px)` }" mdui-ripple
               @touchstart="handleTouchStart($event, item, index)"
@@ -962,10 +956,10 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
                   <!-- 图片类型 -->
                   <div v-if="item.type === 'image'" class="clipboard-images">
                     <div class="image-grid">
-                      <img 
-                        v-for="(url, imgIndex) in parseImageContent(item.content)" 
+                      <img
+                        v-for="(url, imgIndex) in parseImageContent(item.content)"
                         :key="imgIndex"
-                        :src="url" 
+                        :src="url"
                         class="clipboard-image"
                         @click.stop="openImagePreview(url)"
                       >
@@ -1001,7 +995,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 
       <!-- 长按菜单遮罩层 -->
       <div v-if="showContextMenu" class="menu-overlay" @click="closeContextMenu"></div>
-      
+
       <!-- 长按菜单 - 使用 MDUI Menu -->
       <mdui-menu
         v-if="showContextMenu"
@@ -1044,7 +1038,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       <!-- 批量分享弹窗 -->
       <ShareDialog
         :open="showBatchShareDialog"
-        :content="batchShareContent"
+        :item-ids="batchShareItemIds"
         :type="batchShareType"
         @close="closeBatchShareDialog"
         @share-created="onBatchShareCreated"

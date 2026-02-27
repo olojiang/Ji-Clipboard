@@ -3,7 +3,8 @@ import { ref, computed } from 'vue'
 
 const props = defineProps<{
   open: boolean
-  content: string
+  content?: string
+  itemIds?: string[]
   type?: string
   fileInfo?: any
 }>()
@@ -50,7 +51,8 @@ function formatDate(timestamp: number): string {
 
 // 创建分享
 async function createShare() {
-  if (!props.content) return
+  // 检查是否有 content 或 itemIds
+  if (!props.content && (!props.itemIds || props.itemIds.length === 0)) return
 
   isCreating.value = true
   error.value = ''
@@ -63,6 +65,23 @@ async function createShare() {
       url += `?session=${sessionId}`
     }
 
+    // 构建请求体
+    const body: any = {
+      visibility: selectedVisibility.value,
+      expireHours: selectedExpire.value,
+    }
+
+    // 优先使用 itemIds（新格式）
+    if (props.itemIds && props.itemIds.length > 0) {
+      body.itemIds = props.itemIds
+      body.type = props.type || 'text'
+    } else {
+      // 兼容旧格式
+      body.content = props.content
+      body.type = props.type || 'text'
+      body.fileInfo = props.fileInfo || null
+    }
+
     const response = await fetch(url, {
       method: 'POST',
       credentials: 'include',
@@ -70,13 +89,7 @@ async function createShare() {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        content: props.content,
-        type: props.type || 'text',
-        fileInfo: props.fileInfo || null,
-        visibility: selectedVisibility.value,
-        expireHours: selectedExpire.value,
-      }),
+      body: JSON.stringify(body),
     })
 
     if (!response.ok) {

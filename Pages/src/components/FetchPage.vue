@@ -64,6 +64,7 @@ const fetchCode = ref('')
 const isFetching = ref(false)
 const fetchError = ref('')
 const fetchedContent = ref('')
+const fetchedItems = ref<Array<{ id: string; content: string; type: string; createdAt: number }>>([]) // 新的 items 数组
 const fetchedType = ref('text') // 分享类型：text, image, file
 const fetchedFileInfo = ref<any>(null) // 文件信息
 const fetchedCode = ref('')
@@ -236,12 +237,21 @@ async function handleFetchShare(shareCode: string) {
     const data = await response.json()
     console.log('[FetchPage] 分享API获取成功，数据:', data)
 
-    if (!data.content) {
-      console.log('[FetchPage] 警告: 返回数据中没有 content 字段')
+    // 新格式：使用 items 数组
+    if (data.items && data.items.length > 0) {
+      fetchedItems.value = data.items
+      // 为了兼容旧代码，将 items 组合成 content 字符串
+      fetchedContent.value = data.items.map((item: any) => item.content).join('\n---\n')
+      fetchedType.value = data.type || 'text'
+    } else {
+      // 兼容旧格式
+      fetchedItems.value = []
+      if (!data.content) {
+        console.log('[FetchPage] 警告: 返回数据中没有 content 字段')
+      }
+      fetchedContent.value = data.content
+      fetchedType.value = data.type || 'text'
     }
-
-    fetchedContent.value = data.content
-    fetchedType.value = data.type || 'text'
 
     // 处理文件信息：优先使用 fileInfo，如果是文件类型且 fileInfo 为空，尝试从 content 解析
     if (data.type === 'file' && !data.fileInfo) {
