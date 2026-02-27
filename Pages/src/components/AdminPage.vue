@@ -342,7 +342,6 @@ async function deleteShare(shareId: string) {
                 <span class="share-owner">@{{ share.ownerLogin }}</span>
                 <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
               </div>
-              <div class="share-text">{{ share.content }}</div>
               <!-- 使用统一的剪贴板项组件 -->
               <ClipboardItem
                 :item="share"
