@@ -15,7 +15,7 @@ const props = defineProps<{
   authLoading: boolean
 }>()
 
-const emit = defineEmits(['login', 'logout', 'showMyShares'])
+const emit = defineEmits(['login', 'logout', 'showMyShares', 'showStorage'])
 
 // API 基础地址
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
@@ -67,6 +67,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.ol
       
       <mdui-list>
         <mdui-list-item icon="history" headline="我的分享" @click="$emit('showMyShares')"></mdui-list-item>
+        <mdui-list-item icon="storage" headline="存储管理" @click="$emit('showStorage')"></mdui-list-item>
         <mdui-list-item icon="settings" headline="设置"></mdui-list-item>
         <mdui-list-item icon="help" headline="帮助"></mdui-list-item>
       </mdui-list>

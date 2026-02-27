@@ -182,12 +182,6 @@ function handleUndo() {
         @show-toast="showToastMessage"
       />
 
-      <!-- 存储管理页面 -->
-      <StoragePage
-        v-else-if="currentTab === 'storage'"
-        @show-toast="showToastMessage"
-      />
-
       <!-- 个人中心页面 -->
       <ProfilePage
         v-else-if="currentTab === 'profile'"
@@ -195,6 +189,7 @@ function handleUndo() {
         :auth-loading="authLoading"
         @login="loginWithGitHub"
         @logout="logout"
+        @show-storage="currentTab = 'storage'"
       />
     </main>
 
@@ -216,7 +211,6 @@ function handleUndo() {
       <mdui-navigation-bar-item icon="content_paste" value="clipboard">剪贴板</mdui-navigation-bar-item>
       <mdui-navigation-bar-item icon="download" value="fetch">获取</mdui-navigation-bar-item>
       <mdui-navigation-bar-item icon="share" value="my-shares">我的分享</mdui-navigation-bar-item>
-      <mdui-navigation-bar-item icon="storage" value="storage">存储</mdui-navigation-bar-item>
       <mdui-navigation-bar-item icon="person" value="profile">我的</mdui-navigation-bar-item>
     </mdui-navigation-bar>
   </div>

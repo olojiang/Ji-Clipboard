@@ -524,9 +524,12 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
   // 为旧数据添加 type 字段（从内容推断）
   items = items.map(item => {
     if (!item.type) {
-      // 如果内容以 [ 开头，可能是图片数组
+      // 如果内容以 [ 开头且包含 http，可能是图片数组
       if (item.content && item.content.startsWith('[') && item.content.includes('http')) {
         item.type = 'image';
+      } else if (item.content && item.content.startsWith('{') && item.content.includes('"id"') && item.content.includes('"filename"')) {
+        // 如果内容以 { 开头且包含 id 和 filename，可能是文件
+        item.type = 'file';
       } else {
         item.type = 'text';
       }
@@ -639,9 +642,12 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
   // 为旧数据添加 type 字段（从内容推断）
   items = items.map(item => {
     if (!item.type) {
-      // 如果内容以 [ 开头，可能是图片数组
+      // 如果内容以 [ 开头且包含 http，可能是图片数组
       if (item.content && item.content.startsWith('[') && item.content.includes('http')) {
         item.type = 'image';
+      } else if (item.content && item.content.startsWith('{') && item.content.includes('"id"') && item.content.includes('"filename"')) {
+        // 如果内容以 { 开头且包含 id 和 filename，可能是文件
+        item.type = 'file';
       } else {
         item.type = 'text';
       }
@@ -656,6 +662,23 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
     return jsonResponse({ error: 'Index out of range' }, 404, corsHeaders);
   }
 
+  // 获取要删除的项目
+  const itemToDelete = items[index];
+  console.log('[handleDeleteClipboardItem] 准备删除项目', { index, type: itemToDelete.type, content: itemToDelete.content?.substring(0, 100) });
+
+  // 如果项目是图片或文件类型，删除对应的存储资源
+  if (itemToDelete.type === 'image' || itemToDelete.type === 'file') {
+    console.log('[handleDeleteClipboardItem] 检测到图片/文件类型，准备删除存储资源');
+    try {
+      await deleteStorageResources(itemToDelete, userId, env);
+    } catch (error) {
+      console.error('[handleDeleteClipboardItem] 删除存储资源失败:', error);
+      // 继续删除剪贴板项目，即使存储资源删除失败
+    }
+  } else {
+    console.log('[handleDeleteClipboardItem] 文本类型，无需删除存储资源');
+  }
+
   // 删除项目
   items.splice(index, 1);
 
@@ -667,6 +690,133 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
   return jsonResponse({
     success: true,
   }, 200, corsHeaders);
+}
+
+// 辅助函数：删除剪贴板项目关联的存储资源
+async function deleteStorageResources(item, userId, env) {
+  console.log('[deleteStorageResources] 开始删除存储资源', { type: item.type, content: item.content?.substring(0, 100) });
+  
+  const userStorageKey = `user_storage:${userId}`;
+  const storageData = await env.CLIPBOARD_KV.get(userStorageKey);
+
+  if (!storageData) {
+    console.log('[deleteStorageResources] 未找到存储数据');
+    return;
+  }
+
+  const storage = JSON.parse(storageData);
+  console.log('[deleteStorageResources] 存储数据', { 
+    totalSize: storage.totalSize, 
+    imagesCount: storage.images?.length,
+    filesCount: storage.files?.length 
+  });
+
+  if (item.type === 'image') {
+    // 解析图片内容，获取图片 ID 列表
+    let imageIds = [];
+    try {
+      const parsed = JSON.parse(item.content);
+      console.log('[deleteStorageResources] 解析图片内容', parsed);
+      if (Array.isArray(parsed)) {
+        // 从 URL 中提取图片 ID
+        imageIds = parsed.map(url => {
+          console.log('[deleteStorageResources] 处理图片 URL', url);
+          // 支持多种 URL 格式：
+          // /api/images/xxx
+          // /api/images/xxx?session=yyy
+          // https://xxx.r2.dev/xxx
+          const match = url.match(/\/api\/images\/([^\/\?]+)/);
+          if (match) {
+            console.log('[deleteStorageResources] 提取到图片 ID', match[1]);
+            return match[1];
+          }
+          // 尝试从 r2.dev URL 中提取
+          const r2Match = url.match(/\/([^\/]+)\/[^\/]+$/);
+          if (r2Match) {
+            console.log('[deleteStorageResources] 从 R2 URL 提取到图片 ID', r2Match[1]);
+            return r2Match[1];
+          }
+          console.log('[deleteStorageResources] 无法从 URL 提取图片 ID');
+          return null;
+        }).filter(id => id !== null);
+      }
+    } catch (e) {
+      console.error('[deleteStorageResources] 解析图片内容失败:', e);
+      return;
+    }
+
+    console.log('[deleteStorageResources] 提取到的图片 IDs', imageIds);
+    console.log('[deleteStorageResources] 存储中的图片', storage.images?.map(img => img.id));
+
+    // 删除匹配的图片
+    if (imageIds.length > 0 && storage.images) {
+      for (const imageId of imageIds) {
+        const imageIndex = storage.images.findIndex(img => img.id === imageId);
+        console.log(`[deleteStorageResources] 查找图片 ${imageId}, 索引: ${imageIndex}`);
+        if (imageIndex !== -1) {
+          const image = storage.images[imageIndex];
+          // 从 R2 删除文件
+          try {
+            await env.IMAGES_BUCKET.delete(image.filename);
+            console.log(`[deleteStorageResources] 已从 R2 删除图片 ${image.filename}`);
+          } catch (e) {
+            console.error('[deleteStorageResources] 从 R2 删除图片失败:', e);
+          }
+          // 更新存储统计
+          storage.totalSize -= image.size;
+          // 从列表中移除
+          storage.images.splice(imageIndex, 1);
+          console.log(`[deleteStorageResources] 已从存储列表移除图片 ${imageId}`);
+        }
+      }
+      // 保存更新后的存储信息
+      await env.CLIPBOARD_KV.put(userStorageKey, JSON.stringify(storage), {
+        expirationTtl: 30 * 24 * 60 * 60,
+      });
+      console.log('[deleteStorageResources] 已更新存储信息');
+    }
+  } else if (item.type === 'file') {
+    // 解析文件内容，获取文件 ID
+    let fileId = null;
+    try {
+      const parsed = JSON.parse(item.content);
+      console.log('[deleteStorageResources] 解析文件内容', parsed);
+      if (parsed && typeof parsed === 'object' && parsed.id) {
+        fileId = parsed.id;
+      }
+    } catch (e) {
+      console.error('[deleteStorageResources] 解析文件内容失败:', e);
+      return;
+    }
+
+    console.log('[deleteStorageResources] 提取到的文件 ID', fileId);
+    console.log('[deleteStorageResources] 存储中的文件', storage.files?.map(f => f.id));
+
+    // 删除匹配的文件
+    if (fileId && storage.files) {
+      const fileIndex = storage.files.findIndex(f => f.id === fileId);
+      console.log(`[deleteStorageResources] 查找文件 ${fileId}, 索引: ${fileIndex}`);
+      if (fileIndex !== -1) {
+        const file = storage.files[fileIndex];
+        // 从 R2 删除文件
+        try {
+          await env.IMAGES_BUCKET.delete(file.filename);
+          console.log(`[deleteStorageResources] 已从 R2 删除文件 ${file.filename}`);
+        } catch (e) {
+          console.error('[deleteStorageResources] 从 R2 删除文件失败:', e);
+        }
+        // 更新存储统计
+        storage.totalSize -= file.size;
+        // 从列表中移除
+        storage.files.splice(fileIndex, 1);
+        // 保存更新后的存储信息
+        await env.CLIPBOARD_KV.put(userStorageKey, JSON.stringify(storage), {
+          expirationTtl: 30 * 24 * 60 * 60,
+        });
+        console.log(`[deleteStorageResources] 已更新存储信息`);
+      }
+    }
+  }
 }
 
 // 生成唯一的5位提取码

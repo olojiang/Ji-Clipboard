@@ -136,17 +136,33 @@ async function deleteShare(shareId: string) {
     // 关闭弹窗并重新获取列表
     closeDetail()
     await fetchMyShares()
+    emit('showToast', '分享已删除')
   } catch (error) {
     console.error('删除分享失败:', error)
-    alert('删除分享失败，请稍后重试')
+    emit('showToast', '删除分享失败')
   }
+}
+
+// 复制分享码
+function copyShareCode(shareId: string) {
+  navigator.clipboard.writeText(shareId).then(() => {
+    emit('showToast', '分享码已复制')
+  }).catch(() => {
+    const input = document.createElement('input')
+    input.value = shareId
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+    emit('showToast', '分享码已复制')
+  })
 }
 
 // 复制分享链接
 function copyShareLink(shareId: string) {
   const shareLink = `${props.baseUrl}/?share=${shareId}`
   navigator.clipboard.writeText(shareLink).then(() => {
-    alert('分享链接已复制！')
+    emit('showToast', '分享链接已复制')
   }).catch(() => {
     const input = document.createElement('input')
     input.value = shareLink
@@ -154,14 +170,14 @@ function copyShareLink(shareId: string) {
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
-    alert('分享链接已复制！')
+    emit('showToast', '分享链接已复制')
   })
 }
 
 // 复制内容
 function copyContent(content: string) {
   navigator.clipboard.writeText(content).then(() => {
-    alert('内容已复制！')
+    emit('showToast', '内容已复制')
   }).catch(() => {
     const input = document.createElement('input')
     input.value = content
@@ -169,7 +185,7 @@ function copyContent(content: string) {
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
-    alert('内容已复制！')
+    emit('showToast', '内容已复制')
   })
 }
 
@@ -181,15 +197,6 @@ function openShare(shareId: string) {
 
 <template>
   <div class="my-shares-page">
-    <!-- 顶部标题 -->
-    <div class="page-header">
-      <h2 class="page-title">我的分享</h2>
-      <mdui-button variant="text" @click="fetchMyShares" :loading="mySharesLoading">
-        <mdui-icon slot="icon" name="refresh"></mdui-icon>
-        刷新
-      </mdui-button>
-    </div>
-
     <!-- 主内容区 -->
     <main class="main-content">
       <div v-if="mySharesLoading" class="loading-state">
@@ -208,34 +215,24 @@ function openShare(shareId: string) {
         <p>暂无分享内容</p>
       </div>
 
-      <!-- 分享列表 - 类似剪贴板样式 -->
-      <mdui-card v-else class="shares-card">
-        <div class="shares-list-header">
-          <span class="shares-list-title">我的分享</span>
-          <mdui-button variant="text" @click="fetchMyShares" :loading="mySharesLoading">
-            <mdui-icon slot="icon" name="refresh"></mdui-icon>
-            刷新
-          </mdui-button>
-        </div>
-
-        <mdui-list class="shares-list">
-          <div
-            v-for="share in myShares"
-            :key="share.id"
-            class="share-item"
-            @click="openDetail(share)"
-          >
-            <div class="share-content">
-              <div class="share-text">{{ getFirstLine(share.content) }}</div>
-              <div class="share-meta">
-                <span class="share-date">{{ formatDate(share.createdAt) }}</span>
-                <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
-              </div>
+      <!-- 分享列表 -->
+      <mdui-list v-else class="shares-list">
+        <div
+          v-for="share in myShares"
+          :key="share.id"
+          class="share-item"
+          @click="openDetail(share)"
+        >
+          <div class="share-content">
+            <div class="share-text">{{ getFirstLine(share.content) }}</div>
+            <div class="share-meta">
+              <span class="share-date">{{ formatDate(share.createdAt) }}</span>
+              <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
             </div>
-            <mdui-icon name="chevron_right" class="share-arrow"></mdui-icon>
           </div>
-        </mdui-list>
-      </mdui-card>
+          <mdui-icon name="chevron_right" class="share-arrow"></mdui-icon>
+        </div>
+      </mdui-list>
     </main>
 
     <!-- 详情弹窗 -->
@@ -329,19 +326,8 @@ function openShare(shareId: string) {
   overflow-y: auto;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 0 8px;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--mdui-color-on-surface);
+.main-content {
+  padding: 0;
 }
 
 .loading-state, .error-state, .empty-state {
@@ -366,25 +352,6 @@ function openShare(shareId: string) {
 .error-state mdui-icon,
 .empty-state mdui-icon {
   margin-bottom: 16px;
-}
-
-.shares-card {
-  padding: 16px;
-}
-
-.shares-list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  padding: 0 8px;
-}
-
-.shares-list-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--mdui-color-on-surface-variant);
-  letter-spacing: 1px;
 }
 
 .shares-list {
