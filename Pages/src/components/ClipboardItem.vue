@@ -74,7 +74,7 @@ function getItemType(): string {
   if (content.includes('filename') || content.includes('"size"')) {
     return 'file'
   }
-  return 'text'
+  return 'unknown'
 }
 
 // 获取文本内容
@@ -175,7 +175,7 @@ function handleDelete() {
     </div>
 
     <!-- 未知类型 -->
-    <div v-else class="item-unknown">
+    <div v-else-if="getItemType() === 'unknown'" class="item-unknown">
       <span>未知类型: {{ item.type }}</span>
       <pre>{{ item.content?.substring(0, 200) }}</pre>
     </div>
