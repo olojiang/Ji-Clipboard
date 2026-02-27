@@ -603,7 +603,7 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
   }
 
   const body = await request.json();
-  const { content, type } = body;
+  const { content, type, createdAt } = body;
 
   if (!content || !content.trim()) {
     return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
@@ -614,11 +614,11 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
   const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
   const items = existingData ? JSON.parse(existingData) : [];
 
-  // 添加新项目
+  // 添加新项目（如果是撤回操作，使用传入的 createdAt）
   const newItem = {
     content: content.trim(),
     type: type || 'text',
-    createdAt: Date.now(),
+    createdAt: createdAt || Date.now(),
   };
   items.push(newItem);
 

@@ -196,10 +196,22 @@ function getFileInfo(): { name: string; size: number; url?: string } | null {
 
 // 从多分享格式中提取图片 URL
 function extractImageUrlFromMulti(content: string): string | null {
-  // 格式: [图片] url
+  // 格式1: [图片] url
   const match = content.match(/^\[图片\]\s*(.+)$/m)
   if (match) {
-    return match[1].trim()
+    const url = match[1].trim()
+    // 如果是 JSON 数组，解析并返回第一个 URL
+    if (url.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(url)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed[0]
+        }
+      } catch {
+        // 解析失败，返回原始内容
+      }
+    }
+    return url
   }
   return null
 }
