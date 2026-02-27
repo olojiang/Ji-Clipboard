@@ -597,7 +597,8 @@ function shareSelected() {
     if (item) {
       if (item.type === 'image') {
         hasImage = true
-        selectedContents.push(`[图片] ${item.content.substring(0, 50)}...`)
+        // 使用完整图片内容，不要截断
+        selectedContents.push(`[图片] ${item.content}`)
       } else if (item.type === 'file') {
         hasFile = true
         try {
