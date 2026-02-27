@@ -659,10 +659,12 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
     return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
   }
 
-  // 获取索引
-  const index = parseInt(url.pathname.split('/').pop());
-  if (isNaN(index)) {
-    return jsonResponse({ error: 'Invalid index' }, 400, corsHeaders);
+  // 获取 createdAt（从 URL 路径）
+  const createdAtStr = url.pathname.split('/').pop();
+  const createdAt = parseInt(createdAtStr);
+  
+  if (isNaN(createdAt)) {
+    return jsonResponse({ error: 'Invalid createdAt' }, 400, corsHeaders);
   }
 
   // 从 KV 获取现有的剪贴板列表
@@ -686,16 +688,16 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
     return item;
   });
 
-  // 按创建时间倒序排列（与获取列表时保持一致）
-  items.sort((a, b) => b.createdAt - a.createdAt);
-
-  if (index < 0 || index >= items.length) {
-    return jsonResponse({ error: 'Index out of range' }, 404, corsHeaders);
+  // 通过 createdAt 查找要删除的项目
+  const itemIndex = items.findIndex(item => item.createdAt === createdAt);
+  
+  if (itemIndex === -1) {
+    return jsonResponse({ error: 'Item not found' }, 404, corsHeaders);
   }
 
   // 获取要删除的项目
-  const itemToDelete = items[index];
-  console.log('[handleDeleteClipboardItem] 准备删除项目', { index, type: itemToDelete.type, content: itemToDelete.content?.substring(0, 100) });
+  const itemToDelete = items[itemIndex];
+  console.log('[handleDeleteClipboardItem] 准备删除项目', { createdAt, type: itemToDelete.type, content: itemToDelete.content?.substring(0, 100) });
 
   // 如果项目是图片或文件类型，删除对应的存储资源
   if (itemToDelete.type === 'image' || itemToDelete.type === 'file') {
@@ -711,7 +713,7 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
   }
 
   // 删除项目
-  items.splice(index, 1);
+  items.splice(itemIndex, 1);
 
   // 保存回 KV（保持原始顺序，不按时间排序）
   await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {

@@ -345,7 +345,8 @@ async function deleteClipboard(index: number, showUndoToast: boolean = true) {
 
   try {
     const sessionId = localStorage.getItem('session_id')
-    let url = `${API_BASE}/api/clipboard-items/${index}`
+    // 使用 createdAt 作为唯一标识，而不是索引
+    let url = `${API_BASE}/api/clipboard-items/${item.createdAt}`
     if (sessionId) {
       url += `?session=${sessionId}`
     }
