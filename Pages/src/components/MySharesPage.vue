@@ -99,6 +99,15 @@ async function fetchMyShares() {
 
 // 打开详情弹窗
 function openDetail(share: any) {
+  console.log('[openDetail] 打开分享详情:', {
+    id: share.id,
+    type: share.type,
+    visibility: share.visibility,
+    contentLength: share.content?.length,
+    content: share.content?.substring(0, 200),
+    createdAt: share.createdAt,
+    expiresAt: share.expiresAt
+  })
   selectedShare.value = share
   showDetailDialog.value = true
 }
