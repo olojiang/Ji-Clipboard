@@ -173,22 +173,22 @@ async function deleteShare(shareId: string) {
 
     <!-- 标签切换 -->
     <div class="tabs">
-      <mdui-chip
-        :selected="currentTab === 'shares' ? true : undefined"
+      <button
+        class="tab-button"
+        :class="{ active: currentTab === 'shares' }"
         @click="currentTab = 'shares'"
-        style="cursor: pointer;"
       >
-        <mdui-icon slot="icon" name="share"></mdui-icon>
+        <mdui-icon name="share"></mdui-icon>
         所有分享
-      </mdui-chip>
-      <mdui-chip
-        :selected="currentTab === 'storage' ? true : undefined"
+      </button>
+      <button
+        class="tab-button"
+        :class="{ active: currentTab === 'storage' }"
         @click="currentTab = 'storage'"
-        style="cursor: pointer;"
       >
-        <mdui-icon slot="icon" name="storage"></mdui-icon>
+        <mdui-icon name="storage"></mdui-icon>
         存储统计
-      </mdui-chip>
+      </button>
     </div>
 
     <!-- 分享列表 -->
@@ -329,6 +329,25 @@ async function deleteShare(shareId: string) {
   gap: 8px;
   margin-bottom: 16px;
   padding: 0 8px;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--mdui-color-surface-container);
+  color: var(--mdui-color-on-surface);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-button.active {
+  background: var(--mdui-color-primary-container);
+  color: var(--mdui-color-on-primary-container);
 }
 
 .content-card {
