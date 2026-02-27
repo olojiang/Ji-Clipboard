@@ -60,26 +60,44 @@ function parseContent(content: string): any {
   }
 }
 
+// 获取实际类型（处理大小写）
+function getItemType(): string {
+  const type = props.item?.type?.toLowerCase()
+  if (type === 'image' || type === 'file' || type === 'text') {
+    return type
+  }
+  // 尝试从内容推断类型
+  const content = props.item?.content || ''
+  if (content.startsWith('[') && content.includes('http')) {
+    return 'image'
+  }
+  if (content.includes('filename') || content.includes('"size"')) {
+    return 'file'
+  }
+  return 'text'
+}
+
 // 获取文本内容
 function getTextContent(): string {
-  if (props.item?.type === 'text') {
-    return props.item.content
+  if (getItemType() === 'text') {
+    return props.item?.content || ''
   }
   return ''
 }
 
 // 获取图片列表
 function getImageList(): string[] {
-  if (props.item?.type === 'image') {
-    const parsed = parseContent(props.item.content)
+  if (getItemType() === 'image') {
+    const parsed = parseContent(props.item?.content)
     if (Array.isArray(parsed)) {
       return parsed
     }
     if (typeof parsed === 'string') {
       return [parsed]
     }
-    if (props.item.imageInfo?.url) {
-      return [props.item.imageInfo.url]
+    // 尝试直接解析 content 作为 URL
+    if (props.item?.content?.startsWith('http')) {
+      return [props.item.content]
     }
   }
   return []
@@ -87,11 +105,11 @@ function getImageList(): string[] {
 
 // 获取文件信息
 function getFileInfo(): { name: string; size: number; url?: string } | null {
-  if (props.item?.type === 'file') {
-    if (props.item.fileInfo) {
+  if (getItemType() === 'file') {
+    if (props.item?.fileInfo) {
       return props.item.fileInfo
     }
-    const parsed = parseContent(props.item.content)
+    const parsed = parseContent(props.item?.content)
     if (parsed && typeof parsed === 'object') {
       return {
         name: parsed.name || parsed.filename || '未知文件',
@@ -134,19 +152,19 @@ function handleDelete() {
 <template>
   <div v-if="item" class="clipboard-item">
     <!-- 文本类型 -->
-    <div v-if="item.type === 'text'" class="item-text">
+    <div v-if="getItemType() === 'text'" class="item-text">
       <pre>{{ getTextContent() }}</pre>
     </div>
 
     <!-- 图片类型 -->
-    <div v-else-if="item.type === 'image'" class="item-images">
+    <div v-else-if="getItemType() === 'image'" class="item-images">
       <div v-for="(url, index) in getImageList()" :key="index" class="image-wrapper">
         <img :src="url" :alt="`图片 ${index + 1}`" loading="lazy" @error="$event.target.style.display='none'" />
       </div>
     </div>
 
     <!-- 文件类型 -->
-    <div v-else-if="item.type === 'file'" class="item-file">
+    <div v-else-if="getItemType() === 'file'" class="item-file">
       <div v-if="getFileInfo()" class="file-info">
         <mdui-icon name="insert_drive_file" class="file-icon"></mdui-icon>
         <div class="file-details">
@@ -165,12 +183,12 @@ function handleDelete() {
     <!-- 操作按钮 -->
     <div v-if="showActions" class="item-actions">
       <!-- 文本操作 -->
-      <template v-if="item.type === 'text'">
+      <template v-if="getItemType() === 'text'">
         <mdui-button-icon icon="content_copy" title="复制" @click="copyText"></mdui-button-icon>
       </template>
 
       <!-- 图片操作 -->
-      <template v-else-if="item.type === 'image'">
+      <template v-else-if="getItemType() === 'image'">
         <mdui-button-icon
           v-for="(url, index) in getImageList()"
           :key="index"
@@ -181,7 +199,7 @@ function handleDelete() {
       </template>
 
       <!-- 文件操作 -->
-      <template v-else-if="item.type === 'file'">
+      <template v-else-if="getItemType() === 'file'">
         <mdui-button-icon
           icon="download"
           title="下载"
