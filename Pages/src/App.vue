@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import ClipboardPage from './components/ClipboardPage.vue'
 import FetchPage from './components/FetchPage.vue'
 import MySharesPage from './components/MySharesPage.vue'
 import StoragePage from './components/StoragePage.vue'
 import ProfilePage from './components/ProfilePage.vue'
+import AdminPage from './components/AdminPage.vue'
 import Toast from './components/Toast.vue'
 
 // API 基础地址
@@ -12,6 +13,9 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.ol
 
 // 页面基础 URL
 const BASE_URL = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}`
+
+// 管理员用户名列表
+const ADMIN_USERS = ['PANDAJSR', 'olojiang']
 
 // 当前页面标签
 const currentTab = ref('clipboard')
@@ -27,6 +31,11 @@ const user = ref<{
     email: string
   }
 }>({ loggedIn: false })
+
+// 计算是否为管理员
+const isAdmin = computed(() => {
+  return user.value.user?.login && ADMIN_USERS.includes(user.value.user.login)
+})
 
 // 登录状态加载中
 const authLoading = ref(true)
@@ -189,6 +198,12 @@ function handleUndo() {
         @back="currentTab = 'profile'"
       />
 
+      <!-- 管理员页面 -->
+      <AdminPage
+        v-else-if="currentTab === 'admin' && isAdmin"
+        @show-toast="showToastMessage"
+      />
+
       <!-- 个人中心页面 -->
       <ProfilePage
         v-else-if="currentTab === 'profile'"
@@ -212,12 +227,13 @@ function handleUndo() {
     <!-- 底部导航栏 -->
     <mdui-navigation-bar 
       class="bottom-nav"
-      :value="currentTab === 'storage' ? 'profile' : currentTab"
+      :value="currentTab === 'storage' ? 'profile' : currentTab === 'admin' ? 'profile' : currentTab"
       @change="(e: any) => switchTab(e.target.value)"
     >
       <mdui-navigation-bar-item icon="content_paste" value="clipboard">剪贴板</mdui-navigation-bar-item>
       <mdui-navigation-bar-item icon="download" value="fetch">获取</mdui-navigation-bar-item>
       <mdui-navigation-bar-item icon="share" value="my-shares">我的分享</mdui-navigation-bar-item>
+      <mdui-navigation-bar-item v-if="isAdmin" icon="admin_panel_settings" value="admin">管理</mdui-navigation-bar-item>
       <mdui-navigation-bar-item icon="person" value="profile">我的</mdui-navigation-bar-item>
     </mdui-navigation-bar>
   </div>

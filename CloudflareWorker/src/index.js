@@ -109,6 +109,22 @@ export default {
         return handleGetStorageInfo(request, env, corsHeaders);
       }
 
+      // ========== 管理员 API ==========
+      // 获取所有分享（管理员）
+      if (path === '/api/admin/shares' && request.method === 'GET') {
+        return handleAdminGetAllShares(request, env, corsHeaders);
+      }
+
+      // 获取所有用户存储统计（管理员）
+      if (path === '/api/admin/storage-stats' && request.method === 'GET') {
+        return handleAdminGetStorageStats(request, env, corsHeaders);
+      }
+
+      // 删除任意分享（管理员）
+      if (path.startsWith('/api/admin/shares/') && request.method === 'DELETE') {
+        return handleAdminDeleteShare(request, env, corsHeaders);
+      }
+
       if (path.startsWith('/api/images/') && request.method === 'DELETE') {
         return handleDeleteImage(request, env, corsHeaders);
       }
@@ -1751,5 +1767,171 @@ async function handleDeleteFile(request, env, corsHeaders) {
   } catch (error) {
     console.error('Delete file error:', error);
     return jsonResponse({ error: 'Delete failed: ' + error.message }, 500, corsHeaders);
+  }
+}
+
+// ========== 管理员功能 ==========
+
+// 管理员用户名列表
+const ADMIN_USERS = ['PANDAJSR', 'olojiang'];
+
+// 检查是否为管理员
+function isAdmin(login) {
+  return ADMIN_USERS.includes(login);
+}
+
+// 获取当前登录用户
+async function getCurrentUser(request, env) {
+  const url = new URL(request.url);
+  let sessionId = url.searchParams.get('session');
+  
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+  
+  if (!sessionId) {
+    return null;
+  }
+  
+  const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+  if (!sessionData) {
+    return null;
+  }
+  
+  return JSON.parse(sessionData);
+}
+
+// 管理员：获取所有分享
+async function handleAdminGetAllShares(request, env, corsHeaders) {
+  try {
+    const user = await getCurrentUser(request, env);
+    
+    if (!user || !isAdmin(user.login)) {
+      return jsonResponse({ error: 'Unauthorized' }, 403, corsHeaders);
+    }
+    
+    // 列出所有分享
+    const shares = [];
+    const list = await env.CLIPBOARD_KV.list({ prefix: 'share:' });
+    
+    for (const key of list.keys) {
+      const shareData = await env.CLIPBOARD_KV.get(key.name);
+      if (shareData) {
+        const share = JSON.parse(shareData);
+        shares.push({
+          id: share.id,
+          content: share.content.substring(0, 100) + (share.content.length > 100 ? '...' : ''),
+          type: share.type || 'text',
+          visibility: share.visibility,
+          ownerId: share.ownerId,
+          ownerLogin: share.ownerLogin,
+          createdAt: share.createdAt,
+          expiresAt: share.expiresAt,
+        });
+      }
+    }
+    
+    // 按创建时间倒序排列
+    shares.sort((a, b) => b.createdAt - a.createdAt);
+    
+    return jsonResponse({ shares, total: shares.length }, 200, corsHeaders);
+  } catch (error) {
+    console.error('Admin get all shares error:', error);
+    return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
+  }
+}
+
+// 管理员：获取所有用户存储统计
+async function handleAdminGetStorageStats(request, env, corsHeaders) {
+  try {
+    const user = await getCurrentUser(request, env);
+    
+    if (!user || !isAdmin(user.login)) {
+      return jsonResponse({ error: 'Unauthorized' }, 403, corsHeaders);
+    }
+    
+    // 列出所有用户存储
+    const users = [];
+    const list = await env.CLIPBOARD_KV.list({ prefix: 'user_storage:' });
+    
+    let totalSize = 0;
+    let totalImages = 0;
+    let totalFiles = 0;
+    
+    for (const key of list.keys) {
+      const storageData = await env.CLIPBOARD_KV.get(key.name);
+      if (storageData) {
+        const storage = JSON.parse(storageData);
+        const userId = key.name.replace('user_storage:', '');
+        
+        totalSize += storage.totalSize || 0;
+        totalImages += storage.images?.length || 0;
+        totalFiles += storage.files?.length || 0;
+        
+        users.push({
+          userId,
+          totalSize: storage.totalSize || 0,
+          imagesCount: storage.images?.length || 0,
+          filesCount: storage.files?.length || 0,
+        });
+      }
+    }
+    
+    // 按存储大小倒序排列
+    users.sort((a, b) => b.totalSize - a.totalSize);
+    
+    return jsonResponse({
+      users,
+      summary: {
+        totalUsers: users.length,
+        totalSize,
+        totalImages,
+        totalFiles,
+      }
+    }, 200, corsHeaders);
+  } catch (error) {
+    console.error('Admin get storage stats error:', error);
+    return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
+  }
+}
+
+// 管理员：删除任意分享
+async function handleAdminDeleteShare(request, env, corsHeaders) {
+  try {
+    const user = await getCurrentUser(request, env);
+    
+    if (!user || !isAdmin(user.login)) {
+      return jsonResponse({ error: 'Unauthorized' }, 403, corsHeaders);
+    }
+    
+    const url = new URL(request.url);
+    const shareId = url.pathname.split('/').pop();
+    
+    // 获取分享数据
+    const shareData = await env.CLIPBOARD_KV.get(`share:${shareId}`);
+    if (!shareData) {
+      return jsonResponse({ error: 'Share not found' }, 404, corsHeaders);
+    }
+    
+    const share = JSON.parse(shareData);
+    
+    // 删除分享
+    await env.CLIPBOARD_KV.delete(`share:${shareId}`);
+    
+    // 从用户分享列表中移除
+    const userSharesKey = `user_shares_list:${share.ownerId}`;
+    const sharesData = await env.CLIPBOARD_KV.get(userSharesKey);
+    if (sharesData) {
+      const shares = JSON.parse(sharesData);
+      const updatedShares = shares.filter(s => s.id !== shareId);
+      await env.CLIPBOARD_KV.put(userSharesKey, JSON.stringify(updatedShares), {
+        expirationTtl: 30 * 24 * 60 * 60,
+      });
+    }
+    
+    return jsonResponse({ success: true }, 200, corsHeaders);
+  } catch (error) {
+    console.error('Admin delete share error:', error);
+    return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
   }
 }
