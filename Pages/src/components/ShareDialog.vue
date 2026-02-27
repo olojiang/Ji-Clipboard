@@ -277,15 +277,7 @@ function handleClose() {
           </div>
         </div>
 
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <mdui-button variant="filled" @click="copyShareCode" style="flex: 1;">
-            <mdui-icon slot="icon" name="tag"></mdui-icon>
-            复制分享码
-          </mdui-button>
-          <mdui-button variant="outlined" @click="copyShareUrl" style="flex: 1;">
-            <mdui-icon slot="icon" name="link"></mdui-icon>
-            复制链接
-          </mdui-button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;">
           <mdui-button variant="outlined" @click="copyShareInfo" style="flex: 1;">
             <mdui-icon slot="icon" name="content_copy"></mdui-icon>
             复制完整信息

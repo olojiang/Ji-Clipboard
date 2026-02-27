@@ -383,14 +383,14 @@ async function undoDelete() {
 
   try {
     const sessionId = localStorage.getItem('session_id')
-    // 使用 PUT 请求恢复到原来的位置
-    let url = `${API_BASE}/api/clipboard-items/${lastDeletedItem.value.index}`
+    // 使用 POST 请求添加新项目（而不是 PUT 恢复）
+    let url = `${API_BASE}/api/clipboard-items`
     if (sessionId) {
       url += `?session=${sessionId}`
     }
 
     const response = await fetch(url, {
-      method: 'PUT',
+      method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
