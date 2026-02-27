@@ -130,6 +130,16 @@ export default {
         return handleAdminGetUserDetail(request, env, corsHeaders);
       }
 
+      // 管理员删除用户图片
+      if (path.startsWith('/api/admin/users/') && path.includes('/images/') && request.method === 'DELETE') {
+        return handleAdminDeleteUserImage(request, env, corsHeaders);
+      }
+
+      // 管理员删除用户文件
+      if (path.startsWith('/api/admin/users/') && path.includes('/files/') && request.method === 'DELETE') {
+        return handleAdminDeleteUserFile(request, env, corsHeaders);
+      }
+
       if (path.startsWith('/api/images/') && request.method === 'DELETE') {
         return handleDeleteImage(request, env, corsHeaders);
       }
@@ -2031,6 +2041,98 @@ async function handleAdminGetUserDetail(request, env, corsHeaders) {
     }, 200, corsHeaders);
   } catch (error) {
     console.error('Admin get user detail error:', error);
+    return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
+  }
+}
+
+// 管理员：删除用户图片
+async function handleAdminDeleteUserImage(request, env, corsHeaders) {
+  try {
+    const user = await getCurrentUser(request, env);
+    
+    if (!user || !isAdmin(user.login)) {
+      return jsonResponse({ error: 'Unauthorized' }, 403, corsHeaders);
+    }
+    
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const userId = pathParts[pathParts.length - 2];
+    const imageId = pathParts[pathParts.length - 1];
+    
+    // 获取用户存储
+    const storageKey = `user_storage:${userId}`;
+    const storageData = await env.CLIPBOARD_KV.get(storageKey);
+    if (!storageData) {
+      return jsonResponse({ error: 'Storage not found' }, 404, corsHeaders);
+    }
+    
+    const storage = JSON.parse(storageData);
+    const image = storage.images?.find((img) => img.id === imageId);
+    
+    if (!image) {
+      return jsonResponse({ error: 'Image not found' }, 404, corsHeaders);
+    }
+    
+    // 从 R2 删除图片
+    if (env.IMAGES_BUCKET) {
+      await env.IMAGES_BUCKET.delete(image.filename);
+    }
+    
+    // 从存储列表中移除
+    storage.images = storage.images.filter((img) => img.id !== imageId);
+    storage.totalSize = (storage.totalSize || 0) - (image.size || 0);
+    
+    await env.CLIPBOARD_KV.put(storageKey, JSON.stringify(storage));
+    
+    return jsonResponse({ success: true }, 200, corsHeaders);
+  } catch (error) {
+    console.error('Admin delete user image error:', error);
+    return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
+  }
+}
+
+// 管理员：删除用户文件
+async function handleAdminDeleteUserFile(request, env, corsHeaders) {
+  try {
+    const user = await getCurrentUser(request, env);
+    
+    if (!user || !isAdmin(user.login)) {
+      return jsonResponse({ error: 'Unauthorized' }, 403, corsHeaders);
+    }
+    
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const userId = pathParts[pathParts.length - 2];
+    const fileId = pathParts[pathParts.length - 1];
+    
+    // 获取用户存储
+    const storageKey = `user_storage:${userId}`;
+    const storageData = await env.CLIPBOARD_KV.get(storageKey);
+    if (!storageData) {
+      return jsonResponse({ error: 'Storage not found' }, 404, corsHeaders);
+    }
+    
+    const storage = JSON.parse(storageData);
+    const file = storage.files?.find((f) => f.id === fileId);
+    
+    if (!file) {
+      return jsonResponse({ error: 'File not found' }, 404, corsHeaders);
+    }
+    
+    // 从 R2 删除文件
+    if (env.FILES_BUCKET) {
+      await env.FILES_BUCKET.delete(file.filename);
+    }
+    
+    // 从存储列表中移除
+    storage.files = storage.files.filter((f) => f.id !== fileId);
+    storage.totalSize = (storage.totalSize || 0) - (file.size || 0);
+    
+    await env.CLIPBOARD_KV.put(storageKey, JSON.stringify(storage));
+    
+    return jsonResponse({ success: true }, 200, corsHeaders);
+  } catch (error) {
+    console.error('Admin delete user file error:', error);
     return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
   }
 }

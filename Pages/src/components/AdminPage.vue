@@ -184,6 +184,70 @@ function closeUserDetail() {
   userDetailTab.value = 'shares'
 }
 
+// 删除用户图片
+async function deleteUserImage(image: any) {
+  if (!confirm(`确定要删除图片 "${image.name || image.filename}" 吗？`)) {
+    return
+  }
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/admin/users/${selectedUser.value.userId}/images/${image.id}`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    })
+
+    if (!response.ok) {
+      throw new Error('删除图片失败')
+    }
+
+    emit('showToast', '图片已删除')
+    // 刷新用户详情
+    await viewUserDetail(selectedUser.value)
+  } catch (error: any) {
+    console.error('删除图片失败:', error)
+    emit('showToast', '删除图片失败: ' + error.message)
+  }
+}
+
+// 删除用户文件
+async function deleteUserFile(file: any) {
+  if (!confirm(`确定要删除文件 "${file.name || file.filename}" 吗？`)) {
+    return
+  }
+
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/admin/users/${selectedUser.value.userId}/files/${file.id}`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    })
+
+    if (!response.ok) {
+      throw new Error('删除文件失败')
+    }
+
+    emit('showToast', '文件已删除')
+    // 刷新用户详情
+    await viewUserDetail(selectedUser.value)
+  } catch (error: any) {
+    console.error('删除文件失败:', error)
+    emit('showToast', '删除文件失败: ' + error.message)
+  }
+}
+
 // 删除分享
 async function deleteShare(shareId: string) {
   if (!confirm('确定要删除这个分享吗？')) {
@@ -465,8 +529,16 @@ async function deleteShare(shareId: string) {
             </div>
             <div class="image-grid">
               <div v-for="image in userDetail.storage.images" :key="image.id" class="image-item">
-                <img :src="image.url" :alt="image.name" />
-                <span class="image-name">{{ image.name }}</span>
+                <div class="image-wrapper">
+                  <img :src="image.url" :alt="image.name || image.filename" @error="$event.target.src = '/placeholder-image.png'" />
+                  <mdui-button-icon
+                    icon="delete"
+                    class="delete-image-btn"
+                    @click="deleteUserImage(image)"
+                    title="删除图片"
+                  ></mdui-button-icon>
+                </div>
+                <span class="image-name">{{ image.name || image.filename }}</span>
                 <span class="image-size">{{ formatFileSize(image.size) }}</span>
               </div>
             </div>
@@ -483,8 +555,15 @@ async function deleteShare(shareId: string) {
                 :key="file.id"
               >
                 <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
-                <div slot="headline">{{ file.name }}</div>
-                <div slot="description">{{ formatFileSize(file.size) }} · {{ formatDate(file.uploadedAt) }}</div>
+                <div slot="headline">{{ file.name || file.filename }}</div>
+                <div slot="description">{{ formatFileSize(file.size) }} · {{ formatDate(file.uploadedAt || file.createdAt) }}</div>
+                <mdui-button-icon
+                  slot="end-icon"
+                  icon="delete"
+                  style="color: var(--mdui-color-error);"
+                  @click="deleteUserFile(file)"
+                  title="删除文件"
+                ></mdui-button-icon>
               </mdui-list-item>
             </mdui-list>
           </mdui-card>
@@ -885,11 +964,25 @@ async function deleteShare(shareId: string) {
   gap: 4px;
 }
 
-.image-item img {
+.image-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.image-wrapper img {
   width: 100%;
   height: 120px;
   object-fit: cover;
   border-radius: 8px;
+}
+
+.delete-image-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  --mdui-color-on-surface-variant: white;
 }
 
 .image-name {
