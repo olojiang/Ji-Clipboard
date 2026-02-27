@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import ClipboardItem from './ClipboardItem.vue'
 
 const props = defineProps<{
   baseUrl: string
@@ -236,7 +237,12 @@ function openShare(shareId: string) {
             @click="openDetail(share)"
           >
             <div class="share-content">
-              <div class="share-text">{{ getFirstLine(share.content) }}</div>
+              <!-- 使用统一的剪贴板项组件 -->
+              <ClipboardItem
+                :item="share"
+                :show-actions="false"
+                class="share-clipboard-item"
+              />
               <div class="share-meta">
                 <span class="share-date">{{ formatDate(share.createdAt) }}</span>
                 <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
