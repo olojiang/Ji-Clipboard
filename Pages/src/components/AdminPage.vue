@@ -173,6 +173,12 @@ async function fetchStorageStats() {
   }
 }
 
+// 切换标签
+function switchTab(tab: string) {
+  console.log('切换标签:', tab)
+  currentTab.value = tab
+}
+
 // 删除分享
 async function deleteShare(shareId: string) {
   if (!confirm('确定要删除这个分享吗？')) {
@@ -217,14 +223,14 @@ async function deleteShare(shareId: string) {
       <button
         class="tab-button"
         :class="{ active: currentTab === 'shares' }"
-        @click="currentTab = 'shares'"
+        @click="switchTab('shares')"
       >
         所有分享
       </button>
       <button
         class="tab-button"
         :class="{ active: currentTab === 'storage' }"
-        @click="currentTab = 'storage'"
+        @click="switchTab('storage')"
       >
         存储统计
       </button>
