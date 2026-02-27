@@ -16,6 +16,12 @@ const sharesLoading = ref(false)
 const storageStats = ref<any>(null)
 const storageLoading = ref(false)
 
+// 用户详情弹窗
+const showUserDetail = ref(false)
+const selectedUser = ref<any>(null)
+const userDetailLoading = ref(false)
+const userDetail = ref<any>(null)
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchAllShares()
@@ -128,6 +134,46 @@ async function fetchStorageStats() {
 // 切换标签
 function switchTab(tab: string) {
   currentTab.value = tab
+}
+
+// 查看用户详情
+async function viewUserDetail(user: any) {
+  selectedUser.value = user
+  showUserDetail.value = true
+  userDetailLoading.value = true
+  
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/admin/users/${user.userId}`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    })
+
+    if (!response.ok) {
+      throw new Error('获取用户详情失败')
+    }
+
+    const data = await response.json()
+    userDetail.value = data
+  } catch (error: any) {
+    console.error('获取用户详情失败:', error)
+    emit('showToast', '获取用户详情失败: ' + error.message)
+    userDetail.value = null
+  } finally {
+    userDetailLoading.value = false
+  }
+}
+
+// 关闭用户详情
+function closeUserDetail() {
+  showUserDetail.value = false
+  selectedUser.value = null
+  userDetail.value = null
 }
 
 // 删除分享
@@ -283,19 +329,99 @@ async function deleteShare(shareId: string) {
             v-for="user in storageStats.users"
             :key="user.userId"
             class="user-item"
+            @click="viewUserDetail(user)"
+            style="cursor: pointer;"
           >
             <div slot="headline" class="user-info">
-              <span>用户 {{ user.userId?.substring(0, 8) }}...</span>
+              <div class="user-name-row">
+                <img v-if="user.userAvatar" :src="user.userAvatar" class="user-avatar" alt="avatar" />
+                <mdui-icon v-else name="person" class="user-avatar-placeholder"></mdui-icon>
+                <span class="user-login">@{{ user.userLogin }}</span>
+              </div>
             </div>
             <div slot="description" class="user-stats">
               <mdui-chip size="small" variant="outlined">{{ formatFileSize(user.totalSize || 0) }}</mdui-chip>
               <mdui-chip size="small" variant="outlined">{{ user.imagesCount || 0 }} 张图片</mdui-chip>
               <mdui-chip size="small" variant="outlined">{{ user.filesCount || 0 }} 个文件</mdui-chip>
             </div>
+            <mdui-icon slot="end-icon" name="chevron_right"></mdui-icon>
           </mdui-list-item>
         </mdui-list>
       </mdui-card>
     </div>
+
+    <!-- 用户详情弹窗 -->
+    <mdui-dialog :open="showUserDetail" @close="closeUserDetail" class="user-detail-dialog">
+      <div v-if="userDetailLoading" class="dialog-loading">
+        <div class="spinner"></div>
+        <p>正在加载用户详情...</p>
+      </div>
+      
+      <div v-else-if="userDetail" class="user-detail-content">
+        <div class="user-detail-header">
+          <img v-if="userDetail.user?.userAvatar" :src="userDetail.user.userAvatar" class="detail-avatar" alt="avatar" />
+          <mdui-icon v-else name="person" class="detail-avatar-placeholder"></mdui-icon>
+          <div class="user-detail-info">
+            <h3>@{{ userDetail.user?.userLogin }}</h3>
+            <p v-if="userDetail.user?.userName">{{ userDetail.user.userName }}</p>
+            <p v-if="userDetail.user?.userEmail" class="user-email">{{ userDetail.user.userEmail }}</p>
+          </div>
+        </div>
+
+        <mdui-divider></mdui-divider>
+
+        <div class="detail-section">
+          <h4>存储统计</h4>
+          <div class="detail-stats">
+            <div class="detail-stat-item">
+              <span class="detail-stat-value">{{ formatFileSize(userDetail.storage?.totalSize || 0) }}</span>
+              <span class="detail-stat-label">总存储</span>
+            </div>
+            <div class="detail-stat-item">
+              <span class="detail-stat-value">{{ userDetail.storage?.imagesCount || 0 }}</span>
+              <span class="detail-stat-label">图片</span>
+            </div>
+            <div class="detail-stat-item">
+              <span class="detail-stat-value">{{ userDetail.storage?.filesCount || 0 }}</span>
+              <span class="detail-stat-label">文件</span>
+            </div>
+            <div class="detail-stat-item">
+              <span class="detail-stat-value">{{ userDetail.shares?.length || 0 }}</span>
+              <span class="detail-stat-label">分享</span>
+            </div>
+          </div>
+        </div>
+
+        <mdui-divider></mdui-divider>
+
+        <div class="detail-section">
+          <h4>用户分享 ({{ userDetail.shares?.length || 0 }})</h4>
+          <div v-if="!userDetail.shares || userDetail.shares.length === 0" class="empty-shares">
+            <p>暂无分享</p>
+          </div>
+          <mdui-list v-else class="detail-shares-list">
+            <mdui-list-item
+              v-for="share in userDetail.shares"
+              :key="share.id"
+              class="detail-share-item"
+            >
+              <div slot="headline">
+                <mdui-chip size="small" variant="outlined" style="font-family: monospace;"
+                  >{{ share.id }}</mdui-chip>
+              </div>
+              <div slot="description" class="share-desc">
+                <span class="share-content-text">{{ share.content?.substring(0, 50) }}{{ share.content?.length > 50 ? '...' : '' }}</span>
+                <span class="share-date">{{ formatDate(share.createdAt) }}</span>
+              </div>
+            </mdui-list-item>
+          </mdui-list>
+        </div>
+      </div>
+      
+      <div slot="action">
+        <mdui-button @click="closeUserDetail">关闭</mdui-button>
+      </div>
+    </mdui-dialog>
   </div>
 </template>
 
@@ -456,7 +582,32 @@ async function deleteShare(shareId: string) {
   --mdui-list-item-trailing-space: 16px;
 }
 
-.user-info {
+.user-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-avatar-placeholder {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--mdui-color-surface-container-highest);
+  color: var(--mdui-color-on-surface-variant);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-login {
   font-weight: 500;
 }
 
@@ -466,8 +617,137 @@ async function deleteShare(shareId: string) {
   margin-top: 4px;
 }
 
+/* 用户详情弹窗 */
+.user-detail-dialog {
+  max-width: 500px;
+  width: 90vw;
+}
+
+.dialog-loading {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.user-detail-content {
+  padding: 16px 0;
+}
+
+.user-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.detail-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.detail-avatar-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--mdui-color-surface-container-highest);
+  color: var(--mdui-color-on-surface-variant);
+  font-size: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-detail-info h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  color: var(--mdui-color-on-surface);
+}
+
+.user-detail-info p {
+  margin: 0;
+  color: var(--mdui-color-on-surface-variant);
+  font-size: 14px;
+}
+
+.user-email {
+  font-size: 12px !important;
+  color: var(--mdui-color-primary) !important;
+}
+
+.detail-section {
+  padding: 16px 0;
+}
+
+.detail-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+.detail-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.detail-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  background: var(--mdui-color-surface-container);
+  border-radius: 8px;
+}
+
+.detail-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--mdui-color-primary);
+}
+
+.detail-stat-label {
+  font-size: 11px;
+  color: var(--mdui-color-on-surface-variant);
+  margin-top: 2px;
+}
+
+.empty-shares {
+  text-align: center;
+  padding: 24px;
+  color: var(--mdui-color-on-surface-variant);
+}
+
+.detail-shares-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.detail-share-item {
+  --mdui-list-item-leading-space: 0;
+  --mdui-list-item-trailing-space: 0;
+}
+
+.share-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-content-text {
+  font-size: 13px;
+  color: var(--mdui-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 600px) {
   .stats-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .detail-stats {
     grid-template-columns: repeat(2, 1fr);
   }
 }
