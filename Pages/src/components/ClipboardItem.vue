@@ -68,13 +68,24 @@ function getItemType(): string {
   }
   // 尝试从内容推断类型
   const content = props.item?.content || ''
-  if (content.startsWith('[') && content.includes('http')) {
+  
+  // 检查是否是图片URL数组
+  if (content.startsWith('[') && content.includes('http') && content.includes('ji-clipboard')) {
     return 'image'
   }
-  if (content.includes('filename') || content.includes('"size"')) {
+  // 检查是否是文件信息JSON
+  if ((content.includes('filename') || content.includes('"size"') || content.includes('originalName')) && content.startsWith('{')) {
     return 'file'
   }
-  return 'unknown'
+  // 如果是纯URL
+  if (content.startsWith('http')) {
+    // 检查是否是图片URL
+    if (content.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/i)) {
+      return 'image'
+    }
+  }
+  // 默认为文本
+  return 'text'
 }
 
 // 获取文本内容
@@ -151,7 +162,7 @@ function handleDelete() {
 
 <template>
   <div v-if="item" class="clipboard-item">
-    <!-- 文本类型 -->
+    <!-- 文本类型（默认） -->
     <div v-if="getItemType() === 'text'" class="item-text">
       <pre>{{ getTextContent() }}</pre>
     </div>
@@ -172,12 +183,6 @@ function handleDelete() {
           <span class="file-size">{{ formatFileSize(getFileInfo()?.size) }}</span>
         </div>
       </div>
-    </div>
-
-    <!-- 未知类型 -->
-    <div v-else-if="getItemType() === 'unknown'" class="item-unknown">
-      <span>未知类型: {{ item.type }}</span>
-      <pre>{{ item.content?.substring(0, 200) }}</pre>
     </div>
 
     <!-- 操作按钮 -->
