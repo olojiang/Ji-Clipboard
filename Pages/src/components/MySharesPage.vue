@@ -295,7 +295,7 @@ function openShare(shareId: string) {
           </div>
           <!-- 使用 ClipboardItem 组件渲染分享内容 -->
           <ClipboardItem
-            :item="{ content: selectedShare.content, type: 'text', createdAt: selectedShare.createdAt }"
+            :item="{ content: selectedShare.content, type: selectedShare.type, createdAt: selectedShare.createdAt }"
             :show-actions="false"
             style="background: var(--mdui-color-surface-container); border-radius: 8px;"
           />
