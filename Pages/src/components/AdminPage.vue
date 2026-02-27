@@ -707,7 +707,6 @@ async function deleteShare(shareId: string) {
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 /* 遮罩层 */
