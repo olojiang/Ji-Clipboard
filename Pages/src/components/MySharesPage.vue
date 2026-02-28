@@ -31,6 +31,10 @@ const contextMenuPosition = ref({ x: 0, y: 0 })
 const longPressTimer = ref<number | null>(null)
 const LONG_PRESS_DURATION = 800
 
+// 详情弹窗状态
+const showDetailDialog = ref(false)
+const selectedShare = ref<any>(null)
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchMyShares()
@@ -235,6 +239,22 @@ function openShare(shareId: string) {
   window.open(`./?share=${shareId}`, '_blank')
 }
 
+// 打开详情弹窗
+function openDetail(share: any) {
+  // 如果是长按触发的，不打开详情
+  if (showContextMenu.value) return
+  selectedShare.value = share
+  showDetailDialog.value = true
+}
+
+// 关闭详情弹窗
+function closeDetail() {
+  showDetailDialog.value = false
+  setTimeout(() => {
+    selectedShare.value = null
+  }, 300)
+}
+
 // 长按处理
 function handleLongPress(event: TouchEvent | MouseEvent, share: any) {
   event.preventDefault()
@@ -360,6 +380,7 @@ function menuAction(action: string) {
             v-for="share in myShares"
             :key="share.id"
             class="share-item"
+            @click="openDetail(share)"
             @touchstart="handleTouchStart($event, share)"
             @touchmove="handleTouchMove"
             @touchend="handleTouchEnd"
@@ -441,6 +462,111 @@ function menuAction(action: string) {
         删除
       </mdui-menu-item>
     </mdui-menu>
+
+    <!-- 详情弹窗 -->
+    <mdui-dialog
+      :open="showDetailDialog"
+      @close="closeDetail"
+      style="max-width: 600px; width: 90%; max-height: 80vh;"
+    >
+      <div slot="headline" style="font-size: 20px; font-weight: 600;">
+        分享详情
+      </div>
+
+      <div v-if="selectedShare" style="padding: 16px 0;">
+        <!-- 分享码 -->
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 8px;">
+            分享码
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <mdui-chip icon="tag" variant="outlined" style="font-family: monospace; font-weight: 600;">
+              #{{ selectedShare.id }}
+            </mdui-chip>
+            <mdui-button-icon icon="content_copy" @click="copyShareCode(selectedShare.id)" title="复制分享码">
+            </mdui-button-icon>
+          </div>
+        </div>
+
+        <!-- 内容 -->
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 8px;">
+            分享内容
+          </div>
+          <!-- 使用 items 数组显示 -->
+          <div v-if="selectedShare.items && selectedShare.items.length > 0" style="
+            padding: 12px 16px;
+            background: var(--mdui-color-surface-container);
+            border-radius: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+          ">
+            <template v-for="(item, index) in selectedShare.items" :key="index">
+              <span v-if="item.type === 'text'" style="font-size: 14px; color: var(--mdui-color-on-surface);">
+                {{ getTextPreview(item.content, 30) }}
+              </span>
+              <mdui-chip v-else-if="item.type === 'image'" size="small" variant="outlined" style="--mdui-chip-outline-color: var(--mdui-color-tertiary-container); color: var(--mdui-color-tertiary);">
+                <mdui-icon slot="icon" name="image"></mdui-icon>
+                图片
+              </mdui-chip>
+              <mdui-chip v-else-if="item.type === 'file'" size="small" variant="outlined" style="--mdui-chip-outline-color: var(--mdui-color-secondary-container); color: var(--mdui-color-secondary);">
+                <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
+                {{ getTextPreview(item.content, 10) }}
+              </mdui-chip>
+            </template>
+          </div>
+          <!-- 旧格式 -->
+          <div v-else style="
+            padding: 12px 16px;
+            background: var(--mdui-color-surface-container);
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-break: break-word;
+          ">
+            {{ selectedShare.content }}
+          </div>
+        </div>
+
+        <!-- 信息 -->
+        <div style="margin-bottom: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            <span style="color: var(--mdui-color-on-surface-variant);">权限</span>
+            <span>{{ getVisibilityText(selectedShare.visibility) }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            <span style="color: var(--mdui-color-on-surface-variant);">创建时间</span>
+            <span>{{ formatDate(selectedShare.createdAt) }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            <span style="color: var(--mdui-color-on-surface-variant);">过期时间</span>
+            <span>{{ formatDate(selectedShare.expiresAt) }}</span>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <mdui-button variant="filled" @click="copyShareLink(selectedShare.id)" style="flex: 1;">
+            <mdui-icon slot="icon" name="link"></mdui-icon>
+            复制链接
+          </mdui-button>
+          <mdui-button variant="outlined" @click="openShare(selectedShare.id)" style="flex: 1;">
+            <mdui-icon slot="icon" name="open_in_new"></mdui-icon>
+            打开分享
+          </mdui-button>
+        </div>
+      </div>
+
+      <div slot="action">
+        <mdui-button variant="text" @click="deleteShare(selectedShare!.id)" style="color: var(--mdui-color-error);">
+          <mdui-icon slot="icon" name="delete"></mdui-icon>
+          删除
+        </mdui-button>
+        <mdui-button variant="filled" @click="closeDetail">关闭</mdui-button>
+      </div>
+    </mdui-dialog>
   </div>
 </template>
 
