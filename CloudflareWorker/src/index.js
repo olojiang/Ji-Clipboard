@@ -2231,7 +2231,48 @@ async function handleAdminGetUserDetail(request, env, corsHeaders) {
     let shares = [];
     if (sharesData) {
       try {
-        shares = JSON.parse(sharesData);
+        const shareList = JSON.parse(sharesData);
+        // 获取每个分享的完整数据
+        for (const share of shareList) {
+          const shareData = await env.CLIPBOARD_KV.get(`share:${share.id}`);
+          if (shareData) {
+            const fullShare = JSON.parse(shareData);
+            
+            // 获取 items 数据（新格式）
+            let items = [];
+            if (fullShare.itemIds && fullShare.itemIds.length > 0) {
+              for (const itemId of fullShare.itemIds) {
+                const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${itemId}`);
+                if (itemData) {
+                  const item = JSON.parse(itemData);
+                  if (!item.isDeleted) {
+                    items.push({
+                      id: item.id,
+                      content: item.content,
+                      type: item.type,
+                      createdAt: item.createdAt
+                    });
+                  }
+                }
+              }
+            }
+            
+            shares.push({
+              id: fullShare.id,
+              content: fullShare.content,
+              items: items,
+              type: fullShare.type || 'text',
+              visibility: fullShare.visibility,
+              ownerId: fullShare.ownerId,
+              ownerLogin: fullShare.ownerLogin,
+              createdAt: fullShare.createdAt,
+              expiresAt: fullShare.expiresAt,
+            });
+          } else {
+            // 如果 share:${id} 不存在，使用列表中的基本数据
+            shares.push(share);
+          }
+        }
       } catch (e) {
         console.error('解析用户分享失败:', userId);
       }
