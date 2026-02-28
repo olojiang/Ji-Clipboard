@@ -610,22 +610,45 @@ function openShare(shareId: string) {
             <p>暂无分享</p>
           </div>
           <mdui-card v-else class="detail-list-card">
-            <mdui-list>
-              <mdui-list-item
-                v-for="share in userDetail.shares"
-                :key="share.id"
-              >
-                <div slot="headline">
-                  <mdui-chip size="small" variant="outlined" style="font-family: monospace;"
-                    >{{ share.id }}</mdui-chip>
-                  <span class="share-visibility-tag">{{ getVisibilityText(share.visibility) }}</span>
+            <div
+              v-for="share in userDetail.shares"
+              :key="share.id"
+              class="share-item"
+              @click="openShareDetail(share)"
+              style="cursor: pointer;"
+            >
+              <div class="share-content">
+                <div class="share-header">
+                  <mdui-chip icon="tag" variant="outlined" size="small" style="font-family: monospace;"
+                    >#{{ share.id }}</mdui-chip>
+                  <mdui-chip size="small" variant="outlined">{{ getVisibilityText(share.visibility) }}</mdui-chip>
                 </div>
-                <div slot="description" class="share-description">
-                  <span class="share-content-preview">{{ share.content?.substring(0, 100) }}{{ share.content?.length > 100 ? '...' : '' }}</span>
-                  <span class="share-time">{{ formatDate(share.createdAt) }}</span>
+                
+                <!-- 内容概要 -->
+                <div class="share-items-row">
+                  <template v-if="share.items && share.items.length > 0">
+                    <template v-for="(item, index) in share.items" :key="index">
+                      <span v-if="item.type === 'text'" class="text-content">
+                        {{ getTextPreview(item.content, 20) }}
+                      </span>
+                      <mdui-chip v-else-if="item.type === 'image'" size="small" variant="outlined" class="image-chip">
+                        <mdui-icon slot="icon" name="image"></mdui-icon>
+                        图片
+                      </mdui-chip>
+                      <mdui-chip v-else-if="item.type === 'file'" size="small" variant="outlined" class="file-chip">
+                        <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
+                        {{ getTextPreview(item.content, 10) }}
+                      </mdui-chip>
+                    </template>
+                  </template>
+                  <template v-else-if="share.content">
+                    <span class="text-content">{{ getTextPreview(share.content, 30) }}</span>
+                  </template>
                 </div>
-              </mdui-list-item>
-            </mdui-list>
+                
+                <div class="share-date">{{ formatDate(share.createdAt) }}</div>
+              </div>
+            </div>
           </mdui-card>
         </div>
 
