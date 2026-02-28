@@ -1320,7 +1320,7 @@ async function handleGetMySharesList(request, env, corsHeaders) {
   for (const share of shares) {
     if (share.expiresAt <= now) continue;
     
-    // 如果有 itemIds，获取完整的剪贴板项数据
+    // 如果有 itemIds，获取完整的剪贴板项数据（新格式）
     let items = [];
     if (share.itemIds && share.itemIds.length > 0) {
       for (const itemId of share.itemIds) {
@@ -1335,6 +1335,30 @@ async function handleGetMySharesList(request, env, corsHeaders) {
               createdAt: item.createdAt
             });
           }
+        }
+      }
+    } else if (share.id) {
+      // 旧格式：从 share:${shareCode} 获取完整数据
+      const shareData = await env.CLIPBOARD_KV.get(`share:${share.id}`);
+      if (shareData) {
+        const fullShare = JSON.parse(shareData);
+        // 如果有 content，解析为单个 item
+        if (fullShare.content) {
+          // 检测类型
+          let type = 'text';
+          if (fullShare.type) {
+            type = fullShare.type;
+          } else if (fullShare.content.startsWith('[') && fullShare.content.includes('http')) {
+            type = 'image';
+          } else if (fullShare.content.startsWith('{') && (fullShare.content.includes('filename') || fullShare.content.includes('originalName'))) {
+            type = 'file';
+          }
+          items.push({
+            id: share.id,
+            content: fullShare.content,
+            type: type,
+            createdAt: share.createdAt
+          });
         }
       }
     }
