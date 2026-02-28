@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import ClipboardItem from './ClipboardItem.vue'
+import { ref, onMounted, computed } from 'vue'
 
 const props = defineProps<{
   baseUrl: string
@@ -15,22 +14,15 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.ol
 const myShares = ref<Array<{
   id: string
   content: string
+  type?: string
   visibility: string
   createdAt: number
   expiresAt: number
+  itemCount?: number
+  items?: Array<{ type: string; content: string }>
 }>>([])
 const mySharesLoading = ref(false)
 const mySharesError = ref('')
-
-// 详情弹窗状态
-const showDetailDialog = ref(false)
-const selectedShare = ref<{
-  id: string
-  content: string
-  visibility: string
-  createdAt: number
-  expiresAt: number
-} | null>(null)
 
 // 页面加载时获取数据
 onMounted(() => {
@@ -59,9 +51,60 @@ function getVisibilityText(visibility: string): string {
   return map[visibility] || visibility
 }
 
-// 获取第一行内容
-function getFirstLine(content: string): string {
-  return content.split('\n')[0] || content
+// 解析分享内容为项目列表
+function parseShareContent(content: string): Array<{ type: string; content: string }> {
+  if (!content) return []
+  
+  // 检查是否是批量分享（包含分隔符 ---）
+  if (!content.includes('\n---\n') && !content.includes('---')) {
+    // 单个分享，检测类型
+    return [{ type: detectType(content), content }]
+  }
+
+  // 批量分享，按分隔符分割
+  const separator = content.includes('\n---\n') ? '\n---\n' : '---'
+  const items = content.split(separator)
+  
+  return items.map(item => {
+    const trimmed = item.trim()
+    if (!trimmed) return null
+    return { type: detectType(trimmed), content: trimmed }
+  }).filter(Boolean) as Array<{ type: string; content: string }>
+}
+
+// 检测内容类型
+function detectType(content: string): string {
+  // 检查是否是图片格式
+  if (content.startsWith('[') && content.includes('http') && content.includes('ji-clipboard')) {
+    return 'image'
+  }
+  // 检查是否是文件格式
+  if ((content.includes('filename') || content.includes('"size"') || content.includes('originalName')) && content.startsWith('{')) {
+    return 'file'
+  }
+  // 默认为文本
+  return 'text'
+}
+
+// 获取文本内容的简短显示
+function getTextPreview(content: string, maxLength: number = 20): string {
+  // 移除 JSON 标记等
+  let text = content
+  if (text.startsWith('[') || text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text)
+      if (Array.isArray(parsed)) {
+        return `[${parsed.length} 张图片]`
+      }
+      if (parsed && typeof parsed === 'object') {
+        return parsed.originalName || parsed.name || parsed.filename || '文件'
+      }
+    } catch {
+      // 解析失败，继续处理
+    }
+  }
+  // 截取前N个字符
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
 }
 
 // 获取我的剪贴板分享列表
@@ -88,37 +131,21 @@ async function fetchMyShares() {
     }
 
     const data = await response.json()
-    myShares.value = data.shares || []
+    // 处理分享数据，解析内容
+    myShares.value = (data.shares || []).map((share: any) => {
+      const items = parseShareContent(share.content)
+      return {
+        ...share,
+        items,
+        itemCount: items.length
+      }
+    })
   } catch (error) {
     console.error('获取分享列表失败:', error)
     mySharesError.value = '获取分享列表失败，请稍后重试'
   } finally {
     mySharesLoading.value = false
   }
-}
-
-// 打开详情弹窗
-function openDetail(share: any) {
-  console.log('[openDetail] 打开分享详情:', {
-    id: share.id,
-    type: share.type,
-    visibility: share.visibility,
-    contentLength: share.content?.length,
-    content: share.content?.substring(0, 200),
-    createdAt: share.createdAt,
-    expiresAt: share.expiresAt
-  })
-  selectedShare.value = share
-  showDetailDialog.value = true
-}
-
-// 关闭详情弹窗
-function closeDetail() {
-  showDetailDialog.value = false
-  // 延迟清空数据，等待动画完成
-  setTimeout(() => {
-    selectedShare.value = null
-  }, 300)
 }
 
 // 删除分享
@@ -146,8 +173,6 @@ async function deleteShare(shareId: string) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    // 关闭弹窗并重新获取列表
-    closeDetail()
     await fetchMyShares()
     emit('showToast', '分享已删除')
   } catch (error) {
@@ -184,21 +209,6 @@ function copyShareLink(shareId: string) {
     document.execCommand('copy')
     document.body.removeChild(input)
     emit('showToast', '分享链接已复制')
-  })
-}
-
-// 复制内容
-function copyContent(content: string) {
-  navigator.clipboard.writeText(content).then(() => {
-    emit('showToast', '内容已复制')
-  }).catch(() => {
-    const input = document.createElement('input')
-    input.value = content
-    document.body.appendChild(input)
-    input.select()
-    document.execCommand('copy')
-    document.body.removeChild(input)
-    emit('showToast', '内容已复制')
   })
 }
 
@@ -243,101 +253,57 @@ function openShare(shareId: string) {
             v-for="share in myShares"
             :key="share.id"
             class="share-item"
-            @click="openDetail(share)"
           >
             <div class="share-content">
-              <!-- 使用统一的剪贴板项组件 -->
-              <ClipboardItem
-                :item="share"
-                :show-actions="false"
-                class="share-clipboard-item"
-              />
+              <!-- 分享码 -->
+              <div class="share-code-row">
+                <mdui-chip icon="tag" variant="outlined" class="share-code-chip" @click="copyShareCode(share.id)">
+                  #{{ share.id }}
+                </mdui-chip>
+              </div>
+              
+              <!-- 内容概要 - 使用 mdui-chip 展示各个项目 -->
+              <div class="share-items-row">
+                <template v-for="(item, index) in share.items" :key="index">
+                  <!-- 文本内容 -->
+                  <mdui-chip v-if="item.type === 'text'" size="small" variant="outlined" class="content-chip text-chip">
+                    {{ getTextPreview(item.content, 15) }}
+                  </mdui-chip>
+                  
+                  <!-- 图片 -->
+                  <mdui-chip v-else-if="item.type === 'image'" size="small" variant="outlined" class="content-chip image-chip">
+                    <mdui-icon slot="icon" name="image"></mdui-icon>
+                    图片
+                  </mdui-chip>
+                  
+                  <!-- 文件 -->
+                  <mdui-chip v-else-if="item.type === 'file'" size="small" variant="outlined" class="content-chip file-chip">
+                    <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
+                    {{ getTextPreview(item.content, 10) }}
+                  </mdui-chip>
+                </template>
+              </div>
+              
+              <!-- 元信息 -->
               <div class="share-meta">
                 <span class="share-date">{{ formatDate(share.createdAt) }}</span>
-                <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
+                <mdui-chip size="small" variant="outlined" class="visibility-chip">
+                  {{ getVisibilityText(share.visibility) }}
+                </mdui-chip>
               </div>
             </div>
-            <mdui-icon name="chevron_right" class="share-arrow"></mdui-icon>
+            
+            <!-- 操作按钮 -->
+            <div class="share-actions">
+              <mdui-button-icon icon="content_copy" title="复制分享码" @click="copyShareCode(share.id)"></mdui-button-icon>
+              <mdui-button-icon icon="link" title="复制链接" @click="copyShareLink(share.id)"></mdui-button-icon>
+              <mdui-button-icon icon="open_in_new" title="打开分享" @click="openShare(share.id)"></mdui-button-icon>
+              <mdui-button-icon icon="delete" title="删除" style="color: var(--mdui-color-error);" @click="deleteShare(share.id)"></mdui-button-icon>
+            </div>
           </div>
         </mdui-list>
       </mdui-card>
     </main>
-
-    <!-- 详情弹窗 -->
-    <mdui-dialog
-      :open="showDetailDialog"
-      @close="closeDetail"
-      style="max-width: 600px; width: 90%; max-height: 80vh;"
-    >
-      <div slot="headline" style="font-size: 20px; font-weight: 600;">
-        分享详情
-      </div>
-
-      <div v-if="selectedShare" style="padding: 16px 0;">
-        <!-- 分享码 -->
-        <div style="margin-bottom: 16px;">
-          <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 8px;">
-            分享码
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <mdui-chip icon="tag" variant="outlined" style="font-family: monospace; font-weight: 600;">
-              {{ selectedShare.id }}
-            </mdui-chip>
-            <mdui-button-icon icon="content_copy" @click="copyShareCode(selectedShare.id)" title="复制分享码">
-            </mdui-button-icon>
-          </div>
-        </div>
-
-        <!-- 内容 -->
-        <div style="margin-bottom: 16px;">
-          <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 8px;">
-            分享内容
-          </div>
-          <!-- 使用 ClipboardItem 组件渲染分享内容 -->
-          <ClipboardItem
-            :item="{ content: selectedShare.content, type: selectedShare.type, createdAt: selectedShare.createdAt }"
-            :show-actions="false"
-            style="background: var(--mdui-color-surface-container); border-radius: 8px;"
-          />
-        </div>
-
-        <!-- 信息 -->
-        <div style="margin-bottom: 24px; display: flex; flex-direction: column; gap: 8px;">
-          <div style="display: flex; justify-content: space-between; font-size: 14px;">
-            <span style="color: var(--mdui-color-on-surface-variant);">权限</span>
-            <span>{{ getVisibilityText(selectedShare.visibility) }}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 14px;">
-            <span style="color: var(--mdui-color-on-surface-variant);">创建时间</span>
-            <span>{{ formatDate(selectedShare.createdAt) }}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 14px;">
-            <span style="color: var(--mdui-color-on-surface-variant);">过期时间</span>
-            <span>{{ formatDate(selectedShare.expiresAt) }}</span>
-          </div>
-        </div>
-
-        <!-- 操作按钮 -->
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <mdui-button variant="filled" @click="copyContent(selectedShare.content)" style="flex: 1;">
-            <mdui-icon slot="icon" name="content_copy"></mdui-icon>
-            复制内容
-          </mdui-button>
-          <mdui-button variant="outlined" @click="copyShareLink(selectedShare.id)" style="flex: 1;">
-            <mdui-icon slot="icon" name="link"></mdui-icon>
-            复制链接
-          </mdui-button>
-        </div>
-      </div>
-
-      <div slot="action">
-        <mdui-button variant="text" @click="deleteShare(selectedShare!.id)" style="color: var(--mdui-color-error);">
-          <mdui-icon slot="icon" name="delete"></mdui-icon>
-          删除
-        </mdui-button>
-        <mdui-button variant="filled" @click="closeDetail">关闭</mdui-button>
-      </div>
-    </mdui-dialog>
   </div>
 </template>
 
@@ -402,15 +368,10 @@ function openShare(shareId: string) {
 
 .share-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding: 12px 16px;
   border-bottom: 1px solid var(--mdui-color-outline-variant);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.share-item:hover {
-  background: var(--mdui-color-surface-container-highest);
+  gap: 12px;
 }
 
 .share-item:last-child {
@@ -422,21 +383,49 @@ function openShare(shareId: string) {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
-.share-text {
-  font-size: 16px;
-  color: var(--mdui-color-on-surface);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.5;
+.share-code-row {
+  display: flex;
+  align-items: center;
+}
+
+.share-code-chip {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.share-items-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.content-chip {
+  max-width: 200px;
+}
+
+.text-chip {
+  --mdui-chip-outline-color: var(--mdui-color-surface-container-highest);
+}
+
+.image-chip {
+  --mdui-chip-outline-color: var(--mdui-color-tertiary-container);
+  color: var(--mdui-color-tertiary);
+}
+
+.file-chip {
+  --mdui-chip-outline-color: var(--mdui-color-secondary-container);
+  color: var(--mdui-color-secondary);
 }
 
 .share-meta {
   display: flex;
   gap: 12px;
+  align-items: center;
   font-size: 12px;
   color: var(--mdui-color-on-surface-variant);
 }
@@ -445,16 +434,18 @@ function openShare(shareId: string) {
   color: var(--mdui-color-on-surface-variant);
 }
 
-.share-visibility {
-  padding: 2px 8px;
-  background: var(--mdui-color-primary-container);
-  border-radius: 4px;
-  color: var(--mdui-color-on-primary-container);
+.visibility-chip {
   font-size: 11px;
 }
 
-.share-arrow {
-  color: var(--mdui-color-on-surface-variant);
-  margin-left: 8px;
+.share-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.share-actions mdui-button-icon {
+  --mdui-button-icon-size: 36px;
 }
 </style>
