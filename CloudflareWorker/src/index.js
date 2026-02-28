@@ -2020,14 +2020,36 @@ async function handleAdminGetAllShares(request, env, corsHeaders) {
       const shareData = await env.CLIPBOARD_KV.get(key.name);
       if (shareData) {
         const share = JSON.parse(shareData);
+        
+        // 新格式：通过 itemIds 获取剪贴板项详情
+        let items = [];
+        if (share.itemIds && share.itemIds.length > 0) {
+          for (const itemId of share.itemIds) {
+            const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${itemId}`);
+            if (itemData) {
+              const item = JSON.parse(itemData);
+              if (!item.isDeleted) {
+                items.push({
+                  id: item.id,
+                  content: item.content,
+                  type: item.type,
+                  createdAt: item.createdAt
+                });
+              }
+            }
+          }
+        }
+        
         // 对于图片和文件类型，保留完整内容以便正确显示
         let displayContent = share.content;
         if (share.type !== 'image' && share.type !== 'file' && share.type !== 'IMAGE' && share.type !== 'FILE') {
-          displayContent = share.content.substring(0, 100) + (share.content.length > 100 ? '...' : '');
+          displayContent = share.content ? share.content.substring(0, 100) + (share.content.length > 100 ? '...' : '') : '';
         }
+        
         shares.push({
           id: share.id,
           content: displayContent,
+          items: items, // 新格式：items 数组
           type: share.type || 'text',
           visibility: share.visibility,
           ownerId: share.ownerId,
