@@ -408,6 +408,9 @@ function menuAction(action: string) {
       </mdui-card>
     </main>
 
+    <!-- 长按菜单遮罩层 -->
+    <div v-if="showContextMenu" class="menu-overlay" @click="closeContextMenu"></div>
+
     <!-- 长按菜单 -->
     <mdui-menu
       v-if="showContextMenu"
@@ -417,7 +420,7 @@ function menuAction(action: string) {
         position: 'fixed',
         left: contextMenuPosition.x + 'px',
         top: contextMenuPosition.y + 'px',
-        zIndex: 9999
+        zIndex: 10001
       }"
     >
       <mdui-menu-item @click="menuAction('copyCode')">
@@ -575,6 +578,17 @@ function menuAction(action: string) {
 }
 
 /* 长按菜单样式 */
+/* 长按菜单遮罩层 */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  background: transparent;
+}
+
 mdui-menu {
   min-width: 180px;
 }
