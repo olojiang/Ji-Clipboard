@@ -262,13 +262,13 @@ function openShare(shareId: string) {
                 </mdui-chip>
               </div>
               
-              <!-- 内容概要 - 使用 mdui-chip 展示各个项目 -->
+              <!-- 内容概要 - 文本直接显示，图片和文件用 chip -->
               <div class="share-items-row">
                 <template v-for="(item, index) in share.items" :key="index">
-                  <!-- 文本内容 -->
-                  <mdui-chip v-if="item.type === 'text'" size="small" variant="outlined" class="content-chip text-chip">
-                    {{ getTextPreview(item.content, 15) }}
-                  </mdui-chip>
+                  <!-- 文本内容 - 直接显示 -->
+                  <span v-if="item.type === 'text'" class="text-content">
+                    {{ getTextPreview(item.content, 20) }}
+                  </span>
                   
                   <!-- 图片 -->
                   <mdui-chip v-else-if="item.type === 'image'" size="small" variant="outlined" class="content-chip image-chip">
@@ -408,8 +408,10 @@ function openShare(shareId: string) {
   max-width: 200px;
 }
 
-.text-chip {
-  --mdui-chip-outline-color: var(--mdui-color-surface-container-highest);
+.text-content {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface);
+  margin-right: 8px;
 }
 
 .image-chip {
