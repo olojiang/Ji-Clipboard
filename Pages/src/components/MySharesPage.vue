@@ -133,6 +133,14 @@ async function fetchMyShares() {
     const data = await response.json()
     // 处理分享数据，解析内容
     myShares.value = (data.shares || []).map((share: any) => {
+      // 如果后端已经返回了 items 数组（新格式），直接使用
+      if (share.items && share.items.length > 0) {
+        return {
+          ...share,
+          itemCount: share.items.length
+        }
+      }
+      // 否则从 content 解析（旧格式兼容）
       const items = parseShareContent(share.content)
       return {
         ...share,

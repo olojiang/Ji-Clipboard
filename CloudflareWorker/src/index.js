@@ -1130,6 +1130,7 @@ async function handleCreateShare(request, env, corsHeaders) {
   shares.push({
     id: shareCode,
     itemCount: itemIds ? itemIds.length : 1,
+    itemIds: itemIds || [], // 存储 itemIds 以便后续获取详情
     visibility,
     createdAt: now,
     expiresAt,
@@ -1312,13 +1313,50 @@ async function handleGetMySharesList(request, env, corsHeaders) {
   const sharesData = await env.CLIPBOARD_KV.get(userSharesKey);
   const shares = sharesData ? JSON.parse(sharesData) : [];
 
-  // 过滤掉已过期的分享
+  // 过滤掉已过期的分享，并获取每个分享的完整 items 数据
   const now = Date.now();
-  const validShares = shares.filter(s => s.expiresAt > now);
+  const validShares = [];
+  
+  for (const share of shares) {
+    if (share.expiresAt <= now) continue;
+    
+    // 如果有 itemIds，获取完整的剪贴板项数据
+    let items = [];
+    if (share.itemIds && share.itemIds.length > 0) {
+      for (const itemId of share.itemIds) {
+        const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${itemId}`);
+        if (itemData) {
+          const item = JSON.parse(itemData);
+          if (!item.isDeleted) {
+            items.push({
+              id: item.id,
+              content: item.content,
+              type: item.type,
+              createdAt: item.createdAt
+            });
+          }
+        }
+      }
+    }
+    
+    validShares.push({
+      ...share,
+      items: items,
+      itemCount: items.length || share.itemCount || 0
+    });
+  }
 
   // 如果有过期分享被过滤，更新列表
   if (validShares.length !== shares.length) {
-    await env.CLIPBOARD_KV.put(userSharesKey, JSON.stringify(validShares), {
+    const updatedShares = validShares.map(s => ({
+      id: s.id,
+      itemCount: s.itemCount,
+      itemIds: s.itemIds || [],
+      visibility: s.visibility,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+    }));
+    await env.CLIPBOARD_KV.put(userSharesKey, JSON.stringify(updatedShares), {
       expirationTtl: 30 * 24 * 60 * 60,
     });
   }
