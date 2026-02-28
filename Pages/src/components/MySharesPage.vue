@@ -735,6 +735,8 @@ mdui-menu {
 
 .detail-card {
   padding: 16px;
+  min-height: calc(100vh - 80px);
+  box-sizing: border-box;
 }
 
 .detail-section {
