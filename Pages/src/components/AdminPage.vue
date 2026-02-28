@@ -453,17 +453,17 @@ async function deleteShare(shareId: string) {
             @click="viewUserDetail(user)"
             style="cursor: pointer;"
           >
-            <div slot="headline" class="user-info">
+            <div class="user-info" style="width: 100%;">
               <div class="user-name-row">
                 <img v-if="user.userAvatar" :src="user.userAvatar" class="user-avatar" alt="avatar" />
                 <mdui-icon v-else name="person" class="user-avatar-placeholder"></mdui-icon>
-                <span class="user-login">@{{ user.userLogin }}</span>
+                <span class="user-login">@{{ user.userLogin || '未知用户' }}</span>
               </div>
-            </div>
-            <div slot="description" class="user-stats">
-              <mdui-chip size="small" variant="outlined">{{ formatFileSize(user.totalSize || 0) }}</mdui-chip>
-              <mdui-chip size="small" variant="outlined">{{ user.imagesCount || 0 }} 张图片</mdui-chip>
-              <mdui-chip size="small" variant="outlined">{{ user.filesCount || 0 }} 个文件</mdui-chip>
+              <div class="user-stats">
+                <mdui-chip size="small" variant="outlined">{{ formatFileSize(user.totalSize || 0) }}</mdui-chip>
+                <mdui-chip size="small" variant="outlined">{{ user.imagesCount || 0 }} 张图片</mdui-chip>
+                <mdui-chip size="small" variant="outlined">{{ user.filesCount || 0 }} 个文件</mdui-chip>
+              </div>
             </div>
             <mdui-icon slot="end-icon" name="chevron_right"></mdui-icon>
           </mdui-list-item>
