@@ -62,6 +62,25 @@ function getVisibilityText(visibility: string): string {
   return map[visibility] || visibility
 }
 
+// 获取文本内容的简短显示
+function getTextPreview(content: string, maxLength: number = 20): string {
+  let text = content
+  if (text.startsWith('[') || text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text)
+      if (Array.isArray(parsed)) {
+        return `[${parsed.length} 张图片]`
+      }
+      if (parsed && typeof parsed === 'object') {
+        return parsed.originalName || parsed.name || parsed.filename || '文件'
+      }
+    } catch {
+      // 解析失败，继续处理
+    }
+  }
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+}
+
 // 获取所有分享
 async function fetchAllShares() {
   sharesLoading.value = true
@@ -338,16 +357,40 @@ async function deleteShare(shareId: string) {
             <div class="share-content">
               <div class="share-header">
                 <mdui-chip icon="tag" variant="outlined" size="small" style="font-family: monospace;"
-                  >{{ share.id }}</mdui-chip>
+                  >#{{ share.id }}</mdui-chip>
                 <span class="share-owner">@{{ share.ownerLogin }}</span>
-                <span class="share-visibility">{{ getVisibilityText(share.visibility) }}</span>
+                <mdui-chip size="small" variant="outlined">{{ getVisibilityText(share.visibility) }}</mdui-chip>
               </div>
-              <!-- 使用统一的剪贴板项组件 -->
-              <ClipboardItem
-                :item="share"
-                :show-actions="false"
-                class="share-clipboard-item"
-              />
+              
+              <!-- 内容概要 - 使用 items 数组或 content 字符串 -->
+              <div class="share-items-row">
+                <template v-if="share.items && share.items.length > 0">
+                  <template v-for="(item, index) in share.items" :key="index">
+                    <!-- 文本内容 - 直接显示 -->
+                    <span v-if="item.type === 'text'" class="text-content">
+                      {{ getTextPreview(item.content, 20) }}
+                    </span>
+                    
+                    <!-- 图片 -->
+                    <mdui-chip v-else-if="item.type === 'image'" size="small" variant="outlined" class="image-chip">
+                      <mdui-icon slot="icon" name="image"></mdui-icon>
+                      图片
+                    </mdui-chip>
+                    
+                    <!-- 文件 -->
+                    <mdui-chip v-else-if="item.type === 'file'" size="small" variant="outlined" class="file-chip">
+                      <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
+                      {{ getTextPreview(item.content, 10) }}
+                    </mdui-chip>
+                  </template>
+                </template>
+                
+                <!-- 旧格式：使用 content 字符串 -->
+                <template v-else-if="share.content">
+                  <span class="text-content">{{ getTextPreview(share.content, 30) }}</span>
+                </template>
+              </div>
+              
               <div class="share-date">{{ formatDate(share.createdAt) }}</div>
             </div>
             <mdui-button-icon
@@ -711,6 +754,29 @@ async function deleteShare(shareId: string) {
 .share-date {
   font-size: 12px;
   color: var(--mdui-color-on-surface-variant);
+}
+
+.share-items-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.text-content {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface);
+}
+
+.image-chip {
+  --mdui-chip-outline-color: var(--mdui-color-tertiary-container);
+  color: var(--mdui-color-tertiary);
+}
+
+.file-chip {
+  --mdui-chip-outline-color: var(--mdui-color-secondary-container);
+  color: var(--mdui-color-secondary);
 }
 
 .stats-summary {
