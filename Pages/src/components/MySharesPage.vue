@@ -410,7 +410,8 @@ function menuAction(action: string) {
 
     <!-- 长按菜单 -->
     <mdui-menu
-      :open="showContextMenu"
+      v-if="showContextMenu"
+      open
       @close="closeContextMenu"
       :style="{
         position: 'fixed',
