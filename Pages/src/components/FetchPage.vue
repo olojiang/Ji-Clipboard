@@ -436,51 +436,95 @@ function closeNotFoundDialog() {
         <!-- 批量分享 - 每个项目一个 card -->
         <template v-else>
           <div class="batch-share-header">
-            <span class="batch-share-count">共 {{ batchShareItems.length }} 个项目</span>
+            <span class="batch-share-count">共 {{ (fetchedItems.length > 0 ? fetchedItems : batchShareItems).length }} 个项目</span>
           </div>
-          <mdui-card
-            v-for="(item, index) in batchShareItems"
-            :key="index"
-            class="share-content-card batch-item-card"
-          >
-            <div class="batch-item-header">
-              <span class="batch-item-number">#{{ index + 1 }}</span>
-              <mdui-chip size="small" variant="outlined">
-                {{ item.type === 'image' ? '图片' : item.type === 'file' ? '文件' : '文本' }}
-              </mdui-chip>
-            </div>
+          <!-- 优先使用 fetchedItems（新格式，包含 type 信息） -->
+          <template v-if="fetchedItems.length > 0">
+            <mdui-card
+              v-for="(item, index) in fetchedItems"
+              :key="item.id || index"
+              class="share-content-card batch-item-card"
+            >
+              <div class="batch-item-header">
+                <span class="batch-item-number">#{{ index + 1 }}</span>
+                <mdui-chip size="small" variant="outlined">
+                  {{ item.type === 'image' ? '图片' : item.type === 'file' ? '文件' : '文本' }}
+                </mdui-chip>
+              </div>
 
-            <!-- 文本类型 -->
-            <div v-if="item.type === 'text'" class="markdown-body" v-html="md.render(item.content)"></div>
+              <!-- 文本类型 -->
+              <div v-if="item.type === 'text'" class="markdown-body" v-html="md.render(item.content)"></div>
 
-            <!-- 图片类型 -->
-            <div v-else-if="item.type === 'image'" class="image-share-content">
-              <div class="image-grid">
-                <!-- 使用预解析的 imageUrls -->
-                <template v-if="item.imageUrls && item.imageUrls.length > 0">
+              <!-- 图片类型 -->
+              <div v-else-if="item.type === 'image'" class="image-share-content">
+                <div class="image-grid">
                   <img
-                    v-for="(url, imgIndex) in item.imageUrls"
+                    v-for="(url, imgIndex) in parseImageContent(item.content)"
                     :key="imgIndex"
                     :src="url"
                     class="share-image"
                     @click="window.open(url, '_blank')"
                   >
-                </template>
-                <!-- 如果没有解析到 URLs，显示原始内容 -->
-                <pre v-else style="white-space: pre-wrap; word-break: break-all;">{{ item.content }}</pre>
-              </div>
-            </div>
-
-            <!-- 文件类型 -->
-            <div v-else-if="item.type === 'file'" class="file-share-content">
-              <div class="file-card">
-                <mdui-icon name="insert_drive_file" style="font-size: 48px; color: var(--mdui-color-primary);"></mdui-icon>
-                <div class="file-info">
-                  <span class="file-name">{{ item.content.substring(0, 50) }}{{ item.content.length > 50 ? '...' : '' }}</span>
                 </div>
               </div>
-            </div>
-          </mdui-card>
+
+              <!-- 文件类型 -->
+              <div v-else-if="item.type === 'file'" class="file-share-content">
+                <div class="file-card">
+                  <mdui-icon name="insert_drive_file" style="font-size: 48px; color: var(--mdui-color-primary);"></mdui-icon>
+                  <div class="file-info">
+                    <span class="file-name">{{ item.content.substring(0, 50) }}{{ item.content.length > 50 ? '...' : '' }}</span>
+                  </div>
+                </div>
+              </div>
+            </mdui-card>
+          </template>
+          <!-- 兼容旧格式：使用 batchShareItems -->
+          <template v-else>
+            <mdui-card
+              v-for="(item, index) in batchShareItems"
+              :key="index"
+              class="share-content-card batch-item-card"
+            >
+              <div class="batch-item-header">
+                <span class="batch-item-number">#{{ index + 1 }}</span>
+                <mdui-chip size="small" variant="outlined">
+                  {{ item.type === 'image' ? '图片' : item.type === 'file' ? '文件' : '文本' }}
+                </mdui-chip>
+              </div>
+
+              <!-- 文本类型 -->
+              <div v-if="item.type === 'text'" class="markdown-body" v-html="md.render(item.content)"></div>
+
+              <!-- 图片类型 -->
+              <div v-else-if="item.type === 'image'" class="image-share-content">
+                <div class="image-grid">
+                  <!-- 使用预解析的 imageUrls -->
+                  <template v-if="item.imageUrls && item.imageUrls.length > 0">
+                    <img
+                      v-for="(url, imgIndex) in item.imageUrls"
+                      :key="imgIndex"
+                      :src="url"
+                      class="share-image"
+                      @click="window.open(url, '_blank')"
+                    >
+                  </template>
+                  <!-- 如果没有解析到 URLs，显示原始内容 -->
+                  <pre v-else style="white-space: pre-wrap; word-break: break-all;">{{ item.content }}</pre>
+                </div>
+              </div>
+
+              <!-- 文件类型 -->
+              <div v-else-if="item.type === 'file'" class="file-share-content">
+                <div class="file-card">
+                  <mdui-icon name="insert_drive_file" style="font-size: 48px; color: var(--mdui-color-primary);"></mdui-icon>
+                  <div class="file-info">
+                    <span class="file-name">{{ item.content.substring(0, 50) }}{{ item.content.length > 50 ? '...' : '' }}</span>
+                  </div>
+                </div>
+              </div>
+            </mdui-card>
+          </template>
         </template>
       </div>
 
