@@ -5,6 +5,7 @@ const props = defineProps<{
   open: boolean
   content?: string
   itemIds?: string[]
+  items?: Array<{ type: string; content: string }>  // 新增：直接传入 items
   type?: string
   fileInfo?: any
 }>()
@@ -47,6 +48,25 @@ function formatDate(timestamp: number): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+// 获取文本内容的简短显示
+function getTextPreview(content: string, maxLength: number = 20): string {
+  let text = content
+  if (text.startsWith('[') || text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text)
+      if (Array.isArray(parsed)) {
+        return `[${parsed.length} 张图片]`
+      }
+      if (parsed && typeof parsed === 'object') {
+        return parsed.originalName || parsed.name || parsed.filename || '文件'
+      }
+    } catch {
+      // 解析失败，继续处理
+    }
+  }
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
 }
 
 // 创建分享
@@ -161,7 +181,7 @@ function copyShareInfo() {
   const visibilityText = visibilityOptions.find(v => v.value === selectedVisibility.value)?.label
   const expireText = expireOptions.find(e => e.value === selectedExpire.value)?.label
   
-  const info = `分享内容：${props.content.substring(0, 50)}${props.content.length > 50 ? '...' : ''}
+  const info = `分享内容：${props.content?.substring(0, 50)}${props.content && props.content.length > 50 ? '...' : ''}
 分享码：${shareResult.value.id}
 链接：${shareResult.value.shareUrl}
 权限：${visibilityText}
@@ -201,12 +221,42 @@ function handleClose() {
     </div>
     
     <div style="padding: 16px 0;">
-      <!-- 内容预览 -->
+      <!-- 内容预览 - 使用 items 数组（新格式）或 content 字符串（旧格式） -->
       <div style="margin-bottom: 24px;">
         <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 8px;">
           分享内容
         </div>
-        <div style="
+        <!-- 新格式：使用 items 数组 -->
+        <div v-if="items && items.length > 0" style="
+          padding: 12px 16px;
+          background: var(--mdui-color-surface-container);
+          border-radius: 8px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+        ">
+          <template v-for="(item, index) in items" :key="index">
+            <!-- 文本内容 - 直接显示 -->
+            <span v-if="item.type === 'text'" style="font-size: 14px; color: var(--mdui-color-on-surface);">
+              {{ getTextPreview(item.content, 20) }}
+            </span>
+            
+            <!-- 图片 -->
+            <mdui-chip v-else-if="item.type === 'image'" size="small" variant="outlined" style="--mdui-chip-outline-color: var(--mdui-color-tertiary-container); color: var(--mdui-color-tertiary);">
+              <mdui-icon slot="icon" name="image"></mdui-icon>
+              图片
+            </mdui-chip>
+            
+            <!-- 文件 -->
+            <mdui-chip v-else-if="item.type === 'file'" size="small" variant="outlined" style="--mdui-chip-outline-color: var(--mdui-color-secondary-container); color: var(--mdui-color-secondary);">
+              <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
+              {{ getTextPreview(item.content, 10) }}
+            </mdui-chip>
+          </template>
+        </div>
+        <!-- 旧格式：使用 content 字符串 -->
+        <div v-else style="
           padding: 12px 16px;
           background: var(--mdui-color-surface-container);
           border-radius: 8px;

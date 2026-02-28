@@ -39,6 +39,7 @@ const showBatchShareDialog = ref(false)
 const batchShareContent = ref('')
 const batchShareType = ref('text')
 const batchShareItemIds = ref<string[]>([])
+const batchShareItems = ref<Array<{ type: string; content: string }>>([]) // 新增：存储完整的 items 数据
 
 // 删除恢复状态
 const lastDeletedItem = ref<{ content: string; createdAt: number; index: number } | null>(null)
@@ -594,11 +595,16 @@ function shareSelected() {
   let hasImage = false
   let hasFile = false
   let hasText = false
+  const selectedItemsData: Array<{ type: string; content: string }> = []
 
   for (const index of indices) {
     const item = myClipboards.value[index]
     if (item && item.id) {
       selectedIds.push(item.id)
+      selectedItemsData.push({
+        type: item.type || 'text',
+        content: item.content
+      })
       if (item.type === 'image') {
         hasImage = true
       } else if (item.type === 'file') {
@@ -609,8 +615,9 @@ function shareSelected() {
     }
   }
 
-  // 存储选中的 itemIds
+  // 存储选中的 itemIds 和完整 items 数据
   batchShareItemIds.value = selectedIds
+  batchShareItems.value = selectedItemsData
 
   // 确定分享类型
   if (hasImage && !hasFile && !hasText) {
@@ -628,6 +635,7 @@ function shareSelected() {
 function closeBatchShareDialog() {
   showBatchShareDialog.value = false
   batchShareContent.value = ''
+  batchShareItems.value = []
 }
 
 // 批量分享创建成功
@@ -1039,6 +1047,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
       <ShareDialog
         :open="showBatchShareDialog"
         :item-ids="batchShareItemIds"
+        :items="batchShareItems"
         :type="batchShareType"
         @close="closeBatchShareDialog"
         @share-created="onBatchShareCreated"
