@@ -24,6 +24,13 @@ const myShares = ref<Array<{
 const mySharesLoading = ref(false)
 const mySharesError = ref('')
 
+// 长按菜单状态
+const showContextMenu = ref(false)
+const contextMenuShare = ref<any>(null)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const longPressTimer = ref<number | null>(null)
+const LONG_PRESS_DURATION = 800
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchMyShares()
@@ -227,6 +234,95 @@ function copyShareLink(shareId: string) {
 function openShare(shareId: string) {
   window.open(`./?share=${shareId}`, '_blank')
 }
+
+// 长按处理
+function handleLongPress(event: TouchEvent | MouseEvent, share: any) {
+  event.preventDefault()
+  console.log('[LongPress] 显示菜单', share)
+  contextMenuShare.value = share
+
+  // 获取触摸/点击位置
+  if ('touches' in event && event.touches.length > 0) {
+    contextMenuPosition.value = {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY
+    }
+  } else if ('clientX' in event) {
+    contextMenuPosition.value = {
+      x: event.clientX,
+      y: event.clientY
+    }
+  }
+
+  showContextMenu.value = true
+}
+
+// 关闭菜单
+function closeContextMenu() {
+  showContextMenu.value = false
+  contextMenuShare.value = null
+}
+
+// 处理触摸开始
+let touchStartTime = 0
+let touchStartX = 0
+let touchStartY = 0
+const TOUCH_MOVE_THRESHOLD = 10
+
+function handleTouchStart(event: TouchEvent, share: any) {
+  const touch = event.touches[0]
+  touchStartTime = Date.now()
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
+
+  longPressTimer.value = window.setTimeout(() => {
+    handleLongPress(event, share)
+    longPressTimer.value = null
+  }, LONG_PRESS_DURATION)
+}
+
+function handleTouchMove(event: TouchEvent) {
+  if (!longPressTimer.value) return
+
+  const touch = event.touches[0]
+  const deltaX = Math.abs(touch.clientX - touchStartX)
+  const deltaY = Math.abs(touch.clientY - touchStartY)
+
+  if (deltaX > TOUCH_MOVE_THRESHOLD || deltaY > TOUCH_MOVE_THRESHOLD) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+}
+
+function handleTouchEnd() {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+}
+
+// 执行菜单操作
+function menuAction(action: string) {
+  if (!contextMenuShare.value) return
+  
+  const shareId = contextMenuShare.value.id
+  closeContextMenu()
+  
+  switch (action) {
+    case 'copyCode':
+      copyShareCode(shareId)
+      break
+    case 'copyLink':
+      copyShareLink(shareId)
+      break
+    case 'open':
+      openShare(shareId)
+      break
+    case 'delete':
+      deleteShare(shareId)
+      break
+  }
+}
 </script>
 
 <template>
@@ -264,11 +360,15 @@ function openShare(shareId: string) {
             v-for="share in myShares"
             :key="share.id"
             class="share-item"
+            @touchstart="handleTouchStart($event, share)"
+            @touchmove="handleTouchMove"
+            @touchend="handleTouchEnd"
+            @contextmenu.prevent="handleLongPress($event, share)"
           >
             <div class="share-content">
               <!-- 分享码 -->
               <div class="share-code-row">
-                <mdui-chip icon="tag" variant="outlined" class="share-code-chip" @click="copyShareCode(share.id)">
+                <mdui-chip icon="tag" variant="outlined" class="share-code-chip">
                   #{{ share.id }}
                 </mdui-chip>
               </div>
@@ -303,18 +403,40 @@ function openShare(shareId: string) {
                 </mdui-chip>
               </div>
             </div>
-            
-            <!-- 操作按钮 -->
-            <div class="share-actions">
-              <mdui-button-icon icon="content_copy" title="复制分享码" @click="copyShareCode(share.id)"></mdui-button-icon>
-              <mdui-button-icon icon="link" title="复制链接" @click="copyShareLink(share.id)"></mdui-button-icon>
-              <mdui-button-icon icon="open_in_new" title="打开分享" @click="openShare(share.id)"></mdui-button-icon>
-              <mdui-button-icon icon="delete" title="删除" style="color: var(--mdui-color-error);" @click="deleteShare(share.id)"></mdui-button-icon>
-            </div>
           </div>
         </mdui-list>
       </mdui-card>
     </main>
+
+    <!-- 长按菜单 -->
+    <mdui-menu
+      :open="showContextMenu"
+      @close="closeContextMenu"
+      :style="{
+        position: 'fixed',
+        left: contextMenuPosition.x + 'px',
+        top: contextMenuPosition.y + 'px',
+        zIndex: 9999
+      }"
+    >
+      <mdui-menu-item @click="menuAction('copyCode')">
+        <mdui-icon slot="icon" name="content_copy"></mdui-icon>
+        复制分享码
+      </mdui-menu-item>
+      <mdui-menu-item @click="menuAction('copyLink')">
+        <mdui-icon slot="icon" name="link"></mdui-icon>
+        复制链接
+      </mdui-menu-item>
+      <mdui-menu-item @click="menuAction('open')">
+        <mdui-icon slot="icon" name="open_in_new"></mdui-icon>
+        打开分享
+      </mdui-menu-item>
+      <mdui-divider></mdui-divider>
+      <mdui-menu-item @click="menuAction('delete')" style="color: var(--mdui-color-error);">
+        <mdui-icon slot="icon" name="delete"></mdui-icon>
+        删除
+      </mdui-menu-item>
+    </mdui-menu>
   </div>
 </template>
 
@@ -451,14 +573,8 @@ function openShare(shareId: string) {
   font-size: 11px;
 }
 
-.share-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-}
-
-.share-actions mdui-button-icon {
-  --mdui-button-icon-size: 36px;
+/* 长按菜单样式 */
+mdui-menu {
+  min-width: 180px;
 }
 </style>
