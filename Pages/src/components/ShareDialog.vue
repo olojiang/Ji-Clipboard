@@ -313,20 +313,26 @@ function handleClose() {
             当前选中: {{ selectedVisibility }}
           </div>
           <div style="display: flex; flex-direction: column; gap: 8px;">
-            <mdui-radio
+            <label 
               v-for="option in visibilityOptions"
               :key="option.value"
-              :value="option.value"
-              :checked="selectedVisibility === option.value"
-              @click="(e: any) => { e.stopPropagation(); console.log('[ShareDialog] 点击权限:', option.value); selectedVisibility = option.value }"
+              style="display: flex; align-items: center; gap: 8px; padding: 8px; cursor: pointer; border-radius: 8px;"
+              :style="{ background: selectedVisibility === option.value ? 'var(--mdui-color-primary-container)' : 'transparent' }"
             >
+              <input
+                type="radio"
+                :value="option.value"
+                :checked="selectedVisibility === option.value"
+                @change="selectedVisibility = option.value"
+                style="width: 20px; height: 20px; cursor: pointer;"
+              />
               <div style="display: flex; flex-direction: column;">
                 <span style="font-size: 14px;">{{ option.label }}</span>
                 <span style="font-size: 12px; color: var(--mdui-color-on-surface-variant);">
                   {{ option.description }}
                 </span>
               </div>
-            </mdui-radio>
+            </label>
           </div>
         </div>
       </div>
