@@ -755,7 +755,7 @@ mdui-menu {
 }
 
 .detail-section {
-  margin-bottom: 6px;
+  margin-bottom: 12px;
   border-bottom: 1px dashed #ccc;
   padding-bottom: 6px;
 }
