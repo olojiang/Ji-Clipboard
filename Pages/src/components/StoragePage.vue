@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 
 const emit = defineEmits(['showToast', 'back'])
 
@@ -57,6 +57,7 @@ function formatDate(timestamp: number): string {
 
 // 获取存储信息
 async function fetchStorageInfo() {
+  console.log('[StoragePage] fetchStorageInfo 开始')
   isLoading.value = true
   error.value = ''
 
@@ -66,7 +67,7 @@ async function fetchStorageInfo() {
     // 检查是否登录
     if (!sessionId) {
       error.value = '请先登录后查看存储管理'
-      isLoading.value = false
+      console.log('[StoragePage] 未登录，设置错误信息')
       return
     }
     
@@ -88,7 +89,7 @@ async function fetchStorageInfo() {
       } else {
         error.value = '获取存储信息失败'
       }
-      isLoading.value = false
+      console.log('[StoragePage] 响应错误，设置错误信息:', error.value)
       return
     }
 
@@ -97,14 +98,23 @@ async function fetchStorageInfo() {
     console.log('[StoragePage] 图片数量:', data.images?.length)
     console.log('[StoragePage] 文件数量:', data.files?.length)
     
-    storageInfo.value = data
+    // 确保数据赋值是响应式的
+    storageInfo.value = { ...data }
     
     console.log('[StoragePage] storageInfo 已设置:', storageInfo.value)
+    console.log('[StoragePage] storageInfo.images:', storageInfo.value?.images)
+    console.log('[StoragePage] storageInfo.files:', storageInfo.value?.files)
+    
+    // 强制 DOM 更新
+    await nextTick()
+    console.log('[StoragePage] nextTick 完成，DOM 应该已更新')
   } catch (err: any) {
     error.value = err.message || '获取存储信息失败'
     console.error('[StoragePage] 获取存储信息失败:', err)
   } finally {
     isLoading.value = false
+    console.log('[StoragePage] isLoading 设置为 false')
+    console.log('[StoragePage] 最终状态 - isLoading:', isLoading.value, 'error:', error.value, 'storageInfo:', storageInfo.value)
   }
 }
 
