@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { APP_VERSION, BUILD_DATE } from './version'
+import { APP_VERSION, BUILD_TIME } from './version'
 import ClipboardPage from './components/ClipboardPage.vue'
 import FetchPage from './components/FetchPage.vue'
 import MySharesPage from './components/MySharesPage.vue'
