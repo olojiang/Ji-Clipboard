@@ -84,6 +84,7 @@ async function fetchStorageInfo() {
       } else {
         error.value = '获取存储信息失败'
       }
+      isLoading.value = false
       return
     }
 
@@ -204,121 +205,123 @@ onMounted(() => {
     </div>
 
     <!-- 存储概览 -->
-    <mdui-card v-if="storageInfo" class="storage-overview">
-      <div class="storage-stats">
-        <div class="storage-chart">
-          <div class="chart-ring" :style="{ '--percent': storagePercent }">
-            <div class="chart-inner">
-              <span class="chart-percent">{{ storagePercent }}%</span>
-              <span class="chart-label">已使用</span>
+    <template v-else-if="storageInfo">
+      <mdui-card class="storage-overview">
+        <div class="storage-stats">
+          <div class="storage-chart">
+            <div class="chart-ring" :style="{ '--percent': storagePercent }">
+              <div class="chart-inner">
+                <span class="chart-percent">{{ storagePercent }}%</span>
+                <span class="chart-label">已使用</span>
+              </div>
+            </div>
+          </div>
+          <div class="storage-details">
+            <div class="detail-item">
+              <span class="detail-label">总空间</span>
+              <span class="detail-value">{{ formatFileSize(storageInfo.maxSize || 0) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">已用空间</span>
+              <span class="detail-value" :class="{ 'text-error': storagePercent >= 90 }">
+                {{ formatFileSize(storageInfo.totalSize || 0) }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">剩余空间</span>
+              <span class="detail-value">{{ formatFileSize((storageInfo.maxSize || 0) - (storageInfo.totalSize || 0)) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">图片数量</span>
+              <span class="detail-value">{{ (storageInfo.images || []).length }} 张</span>
             </div>
           </div>
         </div>
-        <div class="storage-details">
-          <div class="detail-item">
-            <span class="detail-label">总空间</span>
-            <span class="detail-value">{{ formatFileSize(storageInfo.maxSize || 0) }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">已用空间</span>
-            <span class="detail-value" :class="{ 'text-error': storagePercent >= 90 }">
-              {{ formatFileSize(storageInfo.totalSize || 0) }}
-            </span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">剩余空间</span>
-            <span class="detail-value">{{ formatFileSize((storageInfo.maxSize || 0) - (storageInfo.totalSize || 0)) }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">图片数量</span>
-            <span class="detail-value">{{ (storageInfo.images || []).length }} 张</span>
-          </div>
+
+        <div v-if="storagePercent >= 90" class="storage-warning">
+          <mdui-icon name="warning"></mdui-icon>
+          <span>存储空间即将用完，建议删除一些不需要的图片</span>
         </div>
-      </div>
+      </mdui-card>
 
-      <div v-if="storagePercent >= 90" class="storage-warning">
-        <mdui-icon name="warning"></mdui-icon>
-        <span>存储空间即将用完，建议删除一些不需要的图片</span>
-      </div>
-    </mdui-card>
-
-    <!-- 图片列表 -->
-    <div v-if="storageInfo && storageInfo.images && storageInfo.images.length > 0" class="images-section">
-      <h3 class="section-title">我的图片 ({{ storageInfo.images.length }})</h3>
-      
-      <div class="images-grid">
-        <div v-for="image in storageInfo.images" :key="image.id" class="image-card">
-          <div class="image-wrapper">
-            <img :src="image.url" :alt="image.filename" loading="lazy">
-          </div>
-          
-          <div class="image-info">
-            <div class="image-meta">
-              <span class="image-size">{{ formatFileSize(image.size) }}</span>
-              <span class="image-date">{{ formatDate(image.createdAt) }}</span>
+      <!-- 图片列表 -->
+      <div v-if="storageInfo.images && storageInfo.images.length > 0" class="images-section">
+        <h3 class="section-title">我的图片 ({{ storageInfo.images.length }})</h3>
+        
+        <div class="images-grid">
+          <div v-for="image in storageInfo.images" :key="image.id" class="image-card">
+            <div class="image-wrapper">
+              <img :src="image.url" :alt="image.filename" loading="lazy">
             </div>
             
-            <div class="image-actions">
+            <div class="image-info">
+              <div class="image-meta">
+                <span class="image-size">{{ formatFileSize(image.size) }}</span>
+                <span class="image-date">{{ formatDate(image.createdAt) }}</span>
+              </div>
+              
+              <div class="image-actions">
+                <mdui-button-icon
+                  icon="content_copy"
+                  title="复制链接"
+                  @click="copyImageUrl(image.url)"
+                ></mdui-button-icon>
+                <mdui-button-icon
+                  icon="delete"
+                  title="删除"
+                  style="color: var(--mdui-color-error);"
+                  @click="deleteImage(image.id)"
+                ></mdui-button-icon>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 文件列表 -->
+      <div v-if="storageInfo.files && storageInfo.files.length > 0" class="files-section">
+        <h3 class="section-title">我的文件 ({{ storageInfo.files.length }})</h3>
+        
+        <div class="files-list">
+          <div v-for="file in storageInfo.files" :key="file.id" class="file-card">
+            <mdui-icon name="insert_drive_file" style="font-size: 40px; color: var(--mdui-color-primary);"></mdui-icon>
+            
+            <div class="file-info">
+              <span class="file-name">{{ file.originalName }}</span>
+              <div class="file-meta">
+                <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                <span class="file-date">{{ formatDate(file.createdAt) }}</span>
+              </div>
+            </div>
+            
+            <div class="file-actions">
               <mdui-button-icon
-                icon="content_copy"
-                title="复制链接"
-                @click="copyImageUrl(image.url)"
+                icon="download"
+                title="下载"
+                @click="downloadFile(file.url)"
               ></mdui-button-icon>
               <mdui-button-icon
                 icon="delete"
                 title="删除"
                 style="color: var(--mdui-color-error);"
-                @click="deleteImage(image.id)"
+                @click="deleteFile(file.id)"
               ></mdui-button-icon>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 文件列表 -->
-    <div v-if="storageInfo && storageInfo.files && storageInfo.files.length > 0" class="files-section">
-      <h3 class="section-title">我的文件 ({{ storageInfo.files.length }})</h3>
-      
-      <div class="files-list">
-        <div v-for="file in storageInfo.files" :key="file.id" class="file-card">
-          <mdui-icon name="insert_drive_file" style="font-size: 40px; color: var(--mdui-color-primary);"></mdui-icon>
-          
-          <div class="file-info">
-            <span class="file-name">{{ file.originalName }}</span>
-            <div class="file-meta">
-              <span class="file-size">{{ formatFileSize(file.size) }}</span>
-              <span class="file-date">{{ formatDate(file.createdAt) }}</span>
-            </div>
-          </div>
-          
-          <div class="file-actions">
-            <mdui-button-icon
-              icon="download"
-              title="下载"
-              @click="downloadFile(file.url)"
-            ></mdui-button-icon>
-            <mdui-button-icon
-              icon="delete"
-              title="删除"
-              style="color: var(--mdui-color-error);"
-              @click="deleteFile(file.id)"
-            ></mdui-button-icon>
-          </div>
-        </div>
+      <!-- 空状态 -->
+      <div v-if="(!storageInfo.images || storageInfo.images.length === 0) && (!storageInfo.files || storageInfo.files.length === 0)" class="empty-state">
+        <mdui-icon name="cloud_upload" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
+        <p>暂无上传内容</p>
+        <p style="font-size: 14px; color: var(--mdui-color-on-surface-variant);">
+          在添加剪贴板时选择"图片"或"文件"类型即可上传
+        </p>
       </div>
-    </div>
+    </template>
 
-    <!-- 空状态 -->
-    <div v-else-if="storageInfo && (!storageInfo.images || storageInfo.images.length === 0) && (!storageInfo.files || storageInfo.files.length === 0)" class="empty-state">
-      <mdui-icon name="cloud_upload" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
-      <p>暂无上传内容</p>
-      <p style="font-size: 14px; color: var(--mdui-color-on-surface-variant);">
-        在添加剪贴板时选择"图片"或"文件"类型即可上传
-      </p>
-    </div>
-
-    <!-- 默认状态（storageInfo 为 null） -->
+    <!-- 默认状态（storageInfo 为 null 且没有错误） -->
     <div v-else class="loading-state">
       <div class="spinner"></div>
       <p>正在加载存储信息...</p>
