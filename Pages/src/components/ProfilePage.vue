@@ -48,19 +48,31 @@ async function exportClipboardData() {
     }
     
     const jsonStr = JSON.stringify(exportData, null, 2)
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonStr)
+    const blob = new Blob([jsonStr], { type: 'application/json' })
     
-    const a = document.createElement('a')
-    a.href = dataUri
-    a.download = `clipboard-backup-${new Date().toISOString().split('T')[0]}.json`
-    a.style.display = 'none'
-    document.body.appendChild(a)
-    a.click()
+    // 使用 FileSaver.js 的方式下载
+    const filename = `clipboard-backup-${new Date().toISOString().split('T')[0]}.json`
     
-    // 延迟移除元素
-    setTimeout(() => {
-      document.body.removeChild(a)
-    }, 100)
+    // 尝试使用 msSaveOrOpenBlob (IE/Edge)
+    if (window.navigator && (window.navigator as any).msSaveOrOpenBlob) {
+      (window.navigator as any).msSaveOrOpenBlob(blob, filename)
+    } else {
+      // 创建下载链接
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      
+      // 使用 setTimeout 确保下载开始
+      setTimeout(() => {
+        a.click()
+        setTimeout(() => {
+          document.body.removeChild(a)
+          window.URL.revokeObjectURL(url)
+        }, 100)
+      }, 0)
+    }
     
     emit('showToast', `已导出 ${exportData.items.length} 条剪贴板数据`)
   } catch (error) {
