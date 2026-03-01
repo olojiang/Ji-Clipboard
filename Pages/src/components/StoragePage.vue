@@ -73,10 +73,14 @@ async function fetchStorageInfo() {
     let url = `${API_BASE}/api/storage`
     url += `?session=${sessionId}`
 
+    console.log('[StoragePage] 请求 URL:', url)
+
     const response = await fetch(url, {
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
     })
+
+    console.log('[StoragePage] 响应状态:', response.status)
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -88,10 +92,17 @@ async function fetchStorageInfo() {
       return
     }
 
-    storageInfo.value = await response.json()
+    const data = await response.json()
+    console.log('[StoragePage] 存储数据:', data)
+    console.log('[StoragePage] 图片数量:', data.images?.length)
+    console.log('[StoragePage] 文件数量:', data.files?.length)
+    
+    storageInfo.value = data
+    
+    console.log('[StoragePage] storageInfo 已设置:', storageInfo.value)
   } catch (err: any) {
     error.value = err.message || '获取存储信息失败'
-    console.error('获取存储信息失败:', err)
+    console.error('[StoragePage] 获取存储信息失败:', err)
   } finally {
     isLoading.value = false
   }
