@@ -538,6 +538,59 @@ async function handleGetMyShares(request, env, corsHeaders) {
   }, 200, corsHeaders);
 }
 
+// 数据迁移：将旧格式数据迁移到新格式
+async function migrateOldFormatToNew(userId, env) {
+  const userClipboardKey = `user_clipboard:${userId}`;
+  const oldData = await env.CLIPBOARD_KV.get(userClipboardKey);
+  
+  if (!oldData) return false;
+  
+  const oldItems = JSON.parse(oldData);
+  if (!Array.isArray(oldItems) || oldItems.length === 0) {
+    await env.CLIPBOARD_KV.delete(userClipboardKey);
+    return false;
+  }
+  
+  console.log(`[migrateOldFormatToNew] 迁移用户 ${userId} 的 ${oldItems.length} 条旧数据`);
+  
+  // 为旧数据添加 id 和 type
+  const newItems = oldItems.map(item => {
+    if (!item.id) {
+      item.id = crypto.randomUUID();
+    }
+    if (!item.type) {
+      if (item.content && item.content.startsWith('[') && item.content.includes('http')) {
+        item.type = 'image';
+      } else if (item.content && item.content.startsWith('{') && item.content.includes('"id"') && item.content.includes('"filename"')) {
+        item.type = 'file';
+      } else {
+        item.type = 'text';
+      }
+    }
+    return item;
+  });
+  
+  // 创建新格式的 refs
+  const refs = newItems.map(item => item.id);
+  const userRefsKey = `user_clipboard_refs:${userId}`;
+  await env.CLIPBOARD_KV.put(userRefsKey, JSON.stringify(refs), {
+    expirationTtl: 7 * 24 * 60 * 60,
+  });
+  
+  // 存储每个 item
+  for (const item of newItems) {
+    await env.CLIPBOARD_KV.put(`clipboard_item:${item.id}`, JSON.stringify(item), {
+      expirationTtl: 7 * 24 * 60 * 60,
+    });
+  }
+  
+  // 删除旧数据
+  await env.CLIPBOARD_KV.delete(userClipboardKey);
+  
+  console.log(`[migrateOldFormatToNew] 迁移完成，共 ${newItems.length} 条数据`);
+  return true;
+}
+
 // 获取用户的剪贴板项目列表
 async function handleGetClipboardItems(request, env, corsHeaders) {
   const url = new URL(request.url);
@@ -566,7 +619,15 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
 
   // 尝试获取新的 UUID 格式数据
   const userRefsKey = `user_clipboard_refs:${userId}`;
-  const refsData = await env.CLIPBOARD_KV.get(userRefsKey);
+  let refsData = await env.CLIPBOARD_KV.get(userRefsKey);
+  
+  // 如果没有新格式数据，尝试迁移旧格式
+  if (!refsData) {
+    const migrated = await migrateOldFormatToNew(userId, env);
+    if (migrated) {
+      refsData = await env.CLIPBOARD_KV.get(userRefsKey);
+    }
+  }
   
   if (refsData) {
     // 新格式：通过 UUID 获取每个剪贴板项
@@ -596,49 +657,9 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
     }, 200, corsHeaders);
   }
 
-  // 兼容旧格式
-  const userClipboardKey = `user_clipboard:${userId}`;
-  const clipboardData = await env.CLIPBOARD_KV.get(userClipboardKey);
-  let items = clipboardData ? JSON.parse(clipboardData) : [];
-
-  console.log('[handleGetClipboardItems] 旧格式数据条数:', items.length);
-
-  // 为旧数据添加 type 字段（从内容推断）和 id 字段
-  let hasNewIds = false;
-  items = items.map((item, index) => {
-    if (!item.type) {
-      // 如果内容以 [ 开头且包含 http，可能是图片数组
-      if (item.content && item.content.startsWith('[') && item.content.includes('http')) {
-        item.type = 'image';
-      } else if (item.content && item.content.startsWith('{') && item.content.includes('"id"') && item.content.includes('"filename"')) {
-        // 如果内容以 { 开头且包含 id 和 filename，可能是文件
-        item.type = 'file';
-      } else {
-        item.type = 'text';
-      }
-    }
-    // 为旧数据生成 id（如果没有的话）
-    if (!item.id) {
-      item.id = generateUUID();
-      hasNewIds = true;
-      console.log('[handleGetClipboardItems] 为第', index, '项生成 id:', item.id);
-    }
-    return item;
-  });
-
-  // 如果有新生成的 id，保存回 KV
-  if (hasNewIds) {
-    console.log('[handleGetClipboardItems] 保存更新后的数据到 KV');
-    await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items));
-  }
-
-  console.log('[handleGetClipboardItems] 返回数据:', items);
-
-  // 按创建时间倒序排列
-  items.sort((a, b) => b.createdAt - a.createdAt);
-
+  // 没有数据
   return jsonResponse({
-    items,
+    items: [],
   }, 200, corsHeaders);
 }
 
@@ -697,24 +718,18 @@ async function handleAddClipboardItem(request, env, corsHeaders) {
 
   // 更新用户的剪贴板引用列表
   const userRefsKey = `user_clipboard_refs:${userId}`;
-  const existingRefs = await env.CLIPBOARD_KV.get(userRefsKey);
+  
+  // 如果没有新格式数据，先尝试迁移旧格式
+  let existingRefs = await env.CLIPBOARD_KV.get(userRefsKey);
+  if (!existingRefs) {
+    await migrateOldFormatToNew(userId, env);
+    existingRefs = await env.CLIPBOARD_KV.get(userRefsKey);
+  }
+  
   const refs = existingRefs ? JSON.parse(existingRefs) : [];
   refs.unshift(itemId); // 添加到开头（最新的在前面）
   await env.CLIPBOARD_KV.put(userRefsKey, JSON.stringify(refs), {
     expirationTtl: 30 * 24 * 60 * 60,
-  });
-
-  // 同时兼容旧格式（为了平滑过渡）
-  const userClipboardKey = `user_clipboard:${userId}`;
-  const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
-  const items = existingData ? JSON.parse(existingData) : [];
-  items.push({
-    content: content.trim(),
-    type: type || 'text',
-    createdAt: createdAt || now,
-  });
-  await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
-    expirationTtl: 7 * 24 * 60 * 60,
   });
 
   return jsonResponse({
@@ -754,7 +769,7 @@ async function handleGetClipboardItemByUUID(request, env, corsHeaders) {
   }, 200, corsHeaders);
 }
 
-// 删除剪贴板项目
+// 删除剪贴板项目（仅新格式）
 async function handleDeleteClipboardItem(request, env, corsHeaders) {
   const url = new URL(request.url);
 
@@ -788,37 +803,42 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
     return jsonResponse({ error: 'Invalid createdAt' }, 400, corsHeaders);
   }
 
-  // 从 KV 获取现有的剪贴板列表
-  const userClipboardKey = `user_clipboard:${userId}`;
-  const existingData = await env.CLIPBOARD_KV.get(userClipboardKey);
-  let items = existingData ? JSON.parse(existingData) : [];
-
-  // 为旧数据添加 type 字段（从内容推断）
-  items = items.map(item => {
-    if (!item.type) {
-      // 如果内容以 [ 开头且包含 http，可能是图片数组
-      if (item.content && item.content.startsWith('[') && item.content.includes('http')) {
-        item.type = 'image';
-      } else if (item.content && item.content.startsWith('{') && item.content.includes('"id"') && item.content.includes('"filename"')) {
-        // 如果内容以 { 开头且包含 id 和 filename，可能是文件
-        item.type = 'file';
-      } else {
-        item.type = 'text';
+  // 获取用户的剪贴板引用列表
+  const userRefsKey = `user_clipboard_refs:${userId}`;
+  const refsData = await env.CLIPBOARD_KV.get(userRefsKey);
+  
+  if (!refsData) {
+    return jsonResponse({ error: 'No clipboard data found' }, 404, corsHeaders);
+  }
+  
+  const refs = JSON.parse(refsData);
+  
+  // 查找要删除的项目
+  let itemToDelete = null;
+  let itemIdToDelete = null;
+  
+  for (const itemId of refs) {
+    const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${itemId}`);
+    if (itemData) {
+      const item = JSON.parse(itemData);
+      if (item.createdAt === createdAt) {
+        itemToDelete = item;
+        itemIdToDelete = itemId;
+        break;
       }
     }
-    return item;
-  });
-
-  // 通过 createdAt 查找要删除的项目
-  const itemIndex = items.findIndex(item => item.createdAt === createdAt);
+  }
   
-  if (itemIndex === -1) {
+  if (!itemToDelete) {
     return jsonResponse({ error: 'Item not found' }, 404, corsHeaders);
   }
 
-  // 获取要删除的项目
-  const itemToDelete = items[itemIndex];
-  console.log('[handleDeleteClipboardItem] 准备删除项目', { createdAt, type: itemToDelete.type, content: itemToDelete.content?.substring(0, 100) });
+  console.log('[handleDeleteClipboardItem] 准备删除项目', { 
+    createdAt, 
+    itemId: itemIdToDelete,
+    type: itemToDelete.type, 
+    content: itemToDelete.content?.substring(0, 100) 
+  });
 
   // 如果项目是图片或文件类型，删除对应的存储资源
   if (itemToDelete.type === 'image' || itemToDelete.type === 'file') {
@@ -833,13 +853,14 @@ async function handleDeleteClipboardItem(request, env, corsHeaders) {
     console.log('[handleDeleteClipboardItem] 文本类型，无需删除存储资源');
   }
 
-  // 删除项目
-  items.splice(itemIndex, 1);
-
-  // 保存回 KV（保持原始顺序，不按时间排序）
-  await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items), {
+  // 从 refs 中移除
+  const newRefs = refs.filter(id => id !== itemIdToDelete);
+  await env.CLIPBOARD_KV.put(userRefsKey, JSON.stringify(newRefs), {
     expirationTtl: 7 * 24 * 60 * 60,
   });
+
+  // 删除 item
+  await env.CLIPBOARD_KV.delete(`clipboard_item:${itemIdToDelete}`);
 
   return jsonResponse({
     success: true,
@@ -1094,39 +1115,36 @@ async function handleImportClipboardItems(request, env, corsHeaders) {
       };
     });
 
-    // 检查用户是否已有新格式数据
+    // 检查用户是否已有新格式数据，如果没有先迁移
     const userRefsKey = `user_clipboard_refs:${userId}`;
-    const refsData = await env.CLIPBOARD_KV.get(userRefsKey);
+    let refsData = await env.CLIPBOARD_KV.get(userRefsKey);
     
+    if (!refsData) {
+      await migrateOldFormatToNew(userId, env);
+      refsData = await env.CLIPBOARD_KV.get(userRefsKey);
+    }
+    
+    // 删除旧的 items（如果存在）
     if (refsData) {
-      // 新格式：删除旧的 items，创建新的 items
       const oldRefs = JSON.parse(refsData);
-      
-      // 删除旧的剪贴板项
       for (const itemId of oldRefs) {
         await env.CLIPBOARD_KV.delete(`clipboard_item:${itemId}`);
       }
-      
-      // 创建新的剪贴板项
-      const newRefs = [];
-      for (const item of importedItems) {
-        await env.CLIPBOARD_KV.put(`clipboard_item:${item.id}`, JSON.stringify(item), {
-          expirationTtl: 7 * 24 * 60 * 60,
-        });
-        newRefs.push(item.id);
-      }
-      
-      // 更新 refs
-      await env.CLIPBOARD_KV.put(userRefsKey, JSON.stringify(newRefs), {
-        expirationTtl: 7 * 24 * 60 * 60,
-      });
-    } else {
-      // 旧格式：直接覆盖用户的剪贴板数据
-      const userClipboardKey = `user_clipboard:${userId}`;
-      await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(importedItems), {
-        expirationTtl: 7 * 24 * 60 * 60,
-      });
     }
+    
+    // 创建新的剪贴板项
+    const newRefs = [];
+    for (const item of importedItems) {
+      await env.CLIPBOARD_KV.put(`clipboard_item:${item.id}`, JSON.stringify(item), {
+        expirationTtl: 7 * 24 * 60 * 60,
+      });
+      newRefs.push(item.id);
+    }
+    
+    // 更新 refs
+    await env.CLIPBOARD_KV.put(userRefsKey, JSON.stringify(newRefs), {
+      expirationTtl: 7 * 24 * 60 * 60,
+    });
 
     return jsonResponse({
       success: true,
