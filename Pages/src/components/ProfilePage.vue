@@ -47,15 +47,20 @@ async function exportClipboardData() {
       items: data.items || []
     }
     
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const downloadUrl = URL.createObjectURL(blob)
+    const jsonStr = JSON.stringify(exportData, null, 2)
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonStr)
+    
     const a = document.createElement('a')
-    a.href = downloadUrl
+    a.href = dataUri
     a.download = `clipboard-backup-${new Date().toISOString().split('T')[0]}.json`
+    a.style.display = 'none'
     document.body.appendChild(a)
     a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(downloadUrl)
+    
+    // 延迟移除元素
+    setTimeout(() => {
+      document.body.removeChild(a)
+    }, 100)
     
     emit('showToast', `已导出 ${exportData.items.length} 条剪贴板数据`)
   } catch (error) {
