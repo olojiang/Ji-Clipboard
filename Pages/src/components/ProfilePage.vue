@@ -15,10 +15,107 @@ const props = defineProps<{
   authLoading: boolean
 }>()
 
-const emit = defineEmits(['login', 'logout', 'showMyShares', 'showStorage'])
+const emit = defineEmits(['login', 'logout', 'showMyShares', 'showStorage', 'showToast'])
 
 // API 基础地址
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.olojiang.workers.dev'
+
+// 导出剪贴板数据
+async function exportClipboardData() {
+  try {
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard-items`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    })
+
+    if (!response.ok) {
+      throw new Error('获取剪贴板数据失败')
+    }
+
+    const data = await response.json()
+    
+    // 创建 JSON 文件并下载
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      version: '1.0',
+      items: data.items || []
+    }
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const downloadUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = downloadUrl
+    a.download = `clipboard-backup-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(downloadUrl)
+    
+    emit('showToast', `已导出 ${exportData.items.length} 条剪贴板数据`)
+  } catch (error) {
+    console.error('导出失败:', error)
+    emit('showToast', '导出失败，请重试')
+  }
+}
+
+// 导入剪贴板数据
+async function importClipboardData(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  
+  if (!file) return
+  
+  try {
+    const text = await file.text()
+    const importData = JSON.parse(text)
+    
+    if (!importData.items || !Array.isArray(importData.items)) {
+      throw new Error('无效的备份文件格式')
+    }
+    
+    if (!confirm(`确定要导入 ${importData.items.length} 条剪贴板数据吗？这将覆盖您当前的所有剪贴板内容。`)) {
+      input.value = ''
+      return
+    }
+    
+    const sessionId = localStorage.getItem('session_id')
+    let url = `${API_BASE}/api/clipboard-items/import`
+    if (sessionId) {
+      url += `?session=${sessionId}`
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ items: importData.items })
+    })
+    
+    if (!response.ok) {
+      throw new Error('导入失败')
+    }
+    
+    const result = await response.json()
+    emit('showToast', `成功导入 ${result.importedCount || importData.items.length} 条数据`)
+    
+    // 刷新页面以显示新数据
+    window.location.reload()
+  } catch (error) {
+    console.error('导入失败:', error)
+    emit('showToast', '导入失败：' + (error instanceof Error ? error.message : '未知错误'))
+  } finally {
+    input.value = ''
+  }
+}
 </script>
 
 <template>
@@ -67,6 +164,15 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.ol
       
       <mdui-list>
         <mdui-list-item icon="storage" headline="存储管理" @click="$emit('showStorage')"></mdui-list-item>
+        <mdui-list-item icon="download" headline="导出剪贴板" @click="exportClipboardData"></mdui-list-item>
+        <mdui-list-item icon="upload" headline="导入剪贴板">
+          <input 
+            type="file" 
+            accept=".json" 
+            @change="importClipboardData"
+            style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0; cursor: pointer;"
+          >
+        </mdui-list-item>
       </mdui-list>
       
       <mdui-button 

@@ -75,6 +75,11 @@ export default {
         }
       }
 
+      // 剪贴板导入 API
+      if (path === '/api/clipboard-items/import' && request.method === 'POST') {
+        return handleImportClipboardItems(request, env, corsHeaders);
+      }
+
       if (path.startsWith('/api/clipboard-items/')) {
         if (request.method === 'DELETE') {
           return handleDeleteClipboardItem(request, env, corsHeaders);
@@ -1044,6 +1049,67 @@ async function handleRestoreClipboardItem(request, env, corsHeaders) {
     item: itemToRestore,
   }, 200, corsHeaders);
 }
+
+// 导入剪贴板项目
+async function handleImportClipboardItems(request, env, corsHeaders) {
+  const url = new URL(request.url);
+
+  // 优先从 URL 参数获取 session
+  let sessionId = url.searchParams.get('session');
+
+  // 如果没有，从 cookie 获取
+  if (!sessionId) {
+    sessionId = getCookie(request, 'session_id');
+  }
+
+  let userId = null;
+
+  if (sessionId) {
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      userId = JSON.parse(sessionData).userId;
+    }
+  }
+
+  // 检查是否登录
+  if (!userId) {
+    return jsonResponse({ error: 'Unauthorized. Please login first.' }, 401, corsHeaders);
+  }
+
+  try {
+    const body = await request.json();
+    const { items } = body;
+
+    if (!items || !Array.isArray(items)) {
+      return jsonResponse({ error: 'Invalid items format' }, 400, corsHeaders);
+    }
+
+    // 处理导入的项目
+    const importedItems = items.map(item => {
+      return {
+        id: item.id || crypto.randomUUID(),
+        content: item.content,
+        type: item.type || 'text',
+        createdAt: item.createdAt || Date.now(),
+      };
+    });
+
+    // 直接覆盖用户的剪贴板数据
+    const userClipboardKey = `user_clipboard:${userId}`;
+    await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(importedItems), {
+      expirationTtl: 7 * 24 * 60 * 60,
+    });
+
+    return jsonResponse({
+      success: true,
+      importedCount: importedItems.length,
+    }, 200, corsHeaders);
+  } catch (error) {
+    console.error('Import clipboard items error:', error);
+    return jsonResponse({ error: 'Import failed: ' + error.message }, 500, corsHeaders);
+  }
+}
+
 function generateRandomString(length) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
