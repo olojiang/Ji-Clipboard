@@ -637,12 +637,14 @@ function closeNotFoundDialog() {
   font-size: 20px;
   font-weight: 600;
   color: var(--mdui-color-on-surface);
+  text-align: left;
 }
 
 .subtitle {
   margin: 0 0 24px 0;
   font-size: 14px;
   color: var(--mdui-color-on-surface-variant);
+  text-align: left;
 }
 
 .code-input {
