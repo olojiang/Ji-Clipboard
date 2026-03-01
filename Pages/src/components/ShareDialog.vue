@@ -226,6 +226,10 @@ function handleClose() {
         <div style="font-size: 12px; color: var(--mdui-color-on-surface-variant); margin-bottom: 8px;">
           分享内容
         </div>
+        <!-- 调试信息 -->
+        <div v-if="true" style="font-size: 10px; color: #999; margin-bottom: 8px;">
+          items: {{ items?.length || 0 }}, content: {{ content ? '有' : '无' }}
+        </div>
         <!-- 新格式：使用 items 数组 -->
         <div v-if="items && items.length > 0" style="
           padding: 12px 16px;
