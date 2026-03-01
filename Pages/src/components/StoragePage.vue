@@ -186,12 +186,25 @@ async function deleteFile(fileId: string) {
 
 // 页面加载时获取数据
 onMounted(() => {
+  console.log('[StoragePage] 组件挂载')
+  console.log('[StoragePage] 初始状态 - isLoading:', isLoading.value, 'error:', error.value, 'storageInfo:', storageInfo.value)
   fetchStorageInfo()
 })
 </script>
 
 <template>
   <div class="storage-page">
+    <h1>存储管理页面</h1>
+    <p>这是存储管理页面</p>
+    
+    <!-- 调试：显示状态 -->
+    <div style="padding: 10px; background: #ffeb3b; margin: 10px 0; font-size: 12px;">
+      <p>isLoading: {{ isLoading }}</p>
+      <p>error: {{ error || '无' }}</p>
+      <p>storageInfo: {{ storageInfo ? '有数据' : 'null' }}</p>
+      <p v-if="storageInfo">images: {{ storageInfo.images?.length }}, files: {{ storageInfo.files?.length }}</p>
+    </div>
+
     <!-- 页面标题 -->
     <div class="page-header">
       <mdui-button-icon icon="arrow_back" @click="$emit('back')"></mdui-button-icon>
