@@ -318,7 +318,7 @@ function handleClose() {
               :key="option.value"
               :value="option.value"
               :checked="selectedVisibility === option.value"
-              @change="(e: any) => { console.log('[ShareDialog] 选中权限:', e.target.value); selectedVisibility = e.target.value }"
+              @click="(e: any) => { e.stopPropagation(); console.log('[ShareDialog] 点击权限:', option.value); selectedVisibility = option.value }"
             >
               <div style="display: flex; flex-direction: column;">
                 <span style="font-size: 14px;">{{ option.label }}</span>
