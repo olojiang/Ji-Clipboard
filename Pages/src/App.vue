@@ -131,9 +131,7 @@ async function logout() {
 
 // 切换标签页
 function switchTab(tab: string) {
-  console.log('[App] switchTab 调用前 currentTab:', currentTab.value)
   currentTab.value = tab
-  console.log('[App] switchTab 调用后 currentTab:', currentTab.value)
   window.history.replaceState({}, '', `#${tab}`)
 }
 
@@ -171,11 +169,6 @@ function handleUndo() {
 
     <!-- 主内容区 -->
     <main class="main-content">
-      <!-- 调试信息 -->
-      <div style="position: fixed; top: 0; left: 0; background: red; color: white; padding: 10px; z-index: 9999; font-size: 12px;">
-        currentTab: {{ currentTab }}
-      </div>
-      
       <!-- 剪贴板页面 -->
       <ClipboardPage
         ref="clipboardPageRef"
@@ -218,7 +211,7 @@ function handleUndo() {
         :auth-loading="authLoading"
         @login="loginWithGitHub"
         @logout="logout"
-        @show-storage="() => { console.log('[App] show-storage 事件触发，准备调用 switchTab'); switchTab('storage') }"
+        @show-storage="switchTab('storage')"
       />
     </main>
 
