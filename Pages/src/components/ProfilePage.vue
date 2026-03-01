@@ -170,14 +170,15 @@ async function importClipboardData(event: Event) {
       <mdui-list>
         <mdui-list-item icon="storage" headline="存储管理" @click="$emit('showStorage')"></mdui-list-item>
         <mdui-list-item icon="download" headline="导出剪贴板" @click="exportClipboardData"></mdui-list-item>
-        <mdui-list-item icon="upload" headline="导入剪贴板">
+        <label class="import-label">
+          <mdui-list-item icon="upload" headline="导入剪贴板"></mdui-list-item>
           <input 
             type="file" 
             accept=".json" 
             @change="importClipboardData"
-            style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0; cursor: pointer;"
+            class="import-input"
           >
-        </mdui-list-item>
+        </label>
       </mdui-list>
       
       <mdui-button 
@@ -271,5 +272,23 @@ async function importClipboardData(event: Event) {
   width: 100%;
   margin-top: 16px;
   --mdui-button-height: 48px;
+}
+
+.import-label {
+  display: block;
+  position: relative;
+  cursor: pointer;
+}
+
+.import-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
 }
 </style>
