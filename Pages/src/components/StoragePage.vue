@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 
 const emit = defineEmits(['showToast', 'back'])
 
@@ -196,9 +196,13 @@ async function deleteFile(fileId: string) {
 
 // 页面加载时获取数据
 onMounted(() => {
-  console.log('[StoragePage] 组件挂载')
+  console.log('[StoragePage] ========== 组件挂载 ==========')
   console.log('[StoragePage] 初始状态 - isLoading:', isLoading.value, 'error:', error.value, 'storageInfo:', storageInfo.value)
   fetchStorageInfo()
+})
+
+onUnmounted(() => {
+  console.log('[StoragePage] ========== 组件卸载 ==========')
 })
 </script>
 

@@ -169,6 +169,11 @@ function handleUndo() {
 
     <!-- 主内容区 -->
     <main class="main-content">
+      <!-- 调试信息 -->
+      <div style="position: fixed; top: 0; left: 0; background: red; color: white; padding: 10px; z-index: 9999; font-size: 12px;">
+        currentTab: {{ currentTab }}
+      </div>
+      
       <!-- 剪贴板页面 -->
       <ClipboardPage
         ref="clipboardPageRef"
