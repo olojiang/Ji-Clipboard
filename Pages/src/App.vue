@@ -261,9 +261,7 @@ function handleUndo() {
 }
 
 .app-bar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  position: relative;
   flex-shrink: 0;
 }
 

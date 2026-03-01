@@ -570,7 +570,6 @@ function menuAction(action: string) {
 <style scoped>
 .my-shares-page {
   height: 100%;
-  overflow-y: auto;
 }
 
 .main-content {
