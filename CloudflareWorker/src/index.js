@@ -596,7 +596,7 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
   const clipboardData = await env.CLIPBOARD_KV.get(userClipboardKey);
   let items = clipboardData ? JSON.parse(clipboardData) : [];
 
-  // 为旧数据添加 type 字段（从内容推断）
+  // 为旧数据添加 type 字段（从内容推断）和 id 字段
   items = items.map(item => {
     if (!item.type) {
       // 如果内容以 [ 开头且包含 http，可能是图片数组
@@ -608,6 +608,10 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
       } else {
         item.type = 'text';
       }
+    }
+    // 为旧数据生成 id（如果没有的话）
+    if (!item.id) {
+      item.id = generateUUID();
     }
     return item;
   });
