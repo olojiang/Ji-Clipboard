@@ -1094,11 +1094,39 @@ async function handleImportClipboardItems(request, env, corsHeaders) {
       };
     });
 
-    // 直接覆盖用户的剪贴板数据
-    const userClipboardKey = `user_clipboard:${userId}`;
-    await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(importedItems), {
-      expirationTtl: 7 * 24 * 60 * 60,
-    });
+    // 检查用户是否已有新格式数据
+    const userRefsKey = `user_clipboard_refs:${userId}`;
+    const refsData = await env.CLIPBOARD_KV.get(userRefsKey);
+    
+    if (refsData) {
+      // 新格式：删除旧的 items，创建新的 items
+      const oldRefs = JSON.parse(refsData);
+      
+      // 删除旧的剪贴板项
+      for (const itemId of oldRefs) {
+        await env.CLIPBOARD_KV.delete(`clipboard_item:${itemId}`);
+      }
+      
+      // 创建新的剪贴板项
+      const newRefs = [];
+      for (const item of importedItems) {
+        await env.CLIPBOARD_KV.put(`clipboard_item:${item.id}`, JSON.stringify(item), {
+          expirationTtl: 7 * 24 * 60 * 60,
+        });
+        newRefs.push(item.id);
+      }
+      
+      // 更新 refs
+      await env.CLIPBOARD_KV.put(userRefsKey, JSON.stringify(newRefs), {
+        expirationTtl: 7 * 24 * 60 * 60,
+      });
+    } else {
+      // 旧格式：直接覆盖用户的剪贴板数据
+      const userClipboardKey = `user_clipboard:${userId}`;
+      await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(importedItems), {
+        expirationTtl: 7 * 24 * 60 * 60,
+      });
+    }
 
     return jsonResponse({
       success: true,
