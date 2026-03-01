@@ -170,11 +170,17 @@ async function fetchMyShares() {
   }
 }
 
+// 删除分享状态
+const deletingShare = ref(false)
+
 // 删除分享
 async function deleteShare(shareId: string) {
   if (!confirm('确定要删除这个分享吗？')) {
     return
   }
+
+  deletingShare.value = true
+  emit('showToast', '正在删除...')
 
   try {
     const sessionId = localStorage.getItem('session_id')
@@ -195,11 +201,19 @@ async function deleteShare(shareId: string) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
+    // 关闭详情弹窗（如果打开的话）
+    if (showDetailDialog.value) {
+      closeDetail()
+    }
+
+    // 刷新分享列表
     await fetchMyShares()
     emit('showToast', '分享已删除')
   } catch (error) {
     console.error('删除分享失败:', error)
     emit('showToast', '删除分享失败')
+  } finally {
+    deletingShare.value = false
   }
 }
 
@@ -541,9 +555,9 @@ function menuAction(action: string) {
             </mdui-button>
           </div>
 
-          <mdui-button variant="text" @click="deleteShare(selectedShare.id)" style="color: var(--mdui-color-error); margin-top: 8px;">
+          <mdui-button variant="text" @click="deleteShare(selectedShare.id)" :loading="deletingShare" :disabled="deletingShare" style="color: var(--mdui-color-error); margin-top: 8px;">
             <mdui-icon slot="icon" name="delete"></mdui-icon>
-            删除分享
+            {{ deletingShare ? '删除中...' : '删除分享' }}
           </mdui-button>
         </mdui-card>
       </div>
