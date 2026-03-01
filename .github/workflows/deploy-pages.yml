@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,6 +39,19 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Commit version bump
+        run: |
+          cd ..
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add Pages/package.json Pages/src/version.ts
+          if git diff --staged --quiet; then
+            echo "No version changes to commit"
+          else
+            git commit -m "chore: auto bump version [skip ci]"
+            git push origin main
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
