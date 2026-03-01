@@ -204,168 +204,47 @@ onMounted(() => {
 
 <template>
   <div class="storage-page">
-    <h1>存储管理页面</h1>
-    <p>这是存储管理页面</p>
+    <h1 style="color: red; font-size: 24px; padding: 20px;">存储管理页面 - 测试</h1>
     
-    <!-- 调试：显示状态 -->
-    <div style="padding: 10px; background: #ffeb3b; margin: 10px 0; font-size: 12px;">
+    <div style="padding: 10px; background: #f0f0f0; margin: 10px 0;">
+      <p><strong>状态信息：</strong></p>
       <p>isLoading: {{ isLoading }}</p>
       <p>error: {{ error || '无' }}</p>
       <p>storageInfo: {{ storageInfo ? '有数据' : 'null' }}</p>
-      <p v-if="storageInfo">images: {{ storageInfo.images?.length }}, files: {{ storageInfo.files?.length }}</p>
-    </div>
-
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <mdui-button-icon icon="arrow_back" @click="$emit('back')"></mdui-button-icon>
-      <h2 class="page-title">存储管理</h2>
-      <mdui-button variant="text" @click="fetchStorageInfo" :loading="isLoading">
-        <mdui-icon slot="icon" name="refresh"></mdui-icon>
-        刷新
-      </mdui-button>
+      <p v-if="storageInfo">图片数: {{ storageInfo.images?.length }}</p>
+      <p v-if="storageInfo">文件数: {{ storageInfo.files?.length }}</p>
     </div>
 
     <!-- 加载中 -->
-    <div v-if="isLoading" class="loading-state">
-      <div class="spinner"></div>
+    <div v-if="isLoading" style="padding: 20px; background: yellow;">
       <p>正在加载...</p>
     </div>
 
     <!-- 错误提示 -->
-    <div v-else-if="error" class="error-state">
-      <mdui-icon name="error_outline" style="font-size: 48px; color: var(--mdui-color-error);"></mdui-icon>
-      <p>{{ error }}</p>
-      <mdui-button variant="filled" @click="fetchStorageInfo">重试</mdui-button>
+    <div v-else-if="error" style="padding: 20px; background: red; color: white;">
+      <p>错误: {{ error }}</p>
     </div>
 
-    <!-- 存储概览 -->
-    <template v-else-if="storageInfo">
-      <!-- 调试信息 -->
-      <div style="padding: 10px; background: #f0f0f0; margin-bottom: 10px;">
-        <p>storageInfo 存在: {{ !!storageInfo }}</p>
-        <p>images 长度: {{ storageInfo.images?.length }}</p>
-        <p>files 长度: {{ storageInfo.files?.length }}</p>
-      </div>
+    <!-- 有数据 -->
+    <div v-else-if="storageInfo" style="padding: 20px; background: green; color: white;">
+      <p>数据已加载！</p>
+      <p>总大小: {{ formatFileSize(storageInfo.totalSize) }}</p>
+      <p>图片数量: {{ storageInfo.images?.length }}</p>
       
-      <mdui-card class="storage-overview">
-        <div class="storage-stats">
-          <div class="storage-chart">
-            <div class="chart-ring" :style="{ '--percent': storagePercent }">
-              <div class="chart-inner">
-                <span class="chart-percent">{{ storagePercent }}%</span>
-                <span class="chart-label">已使用</span>
-              </div>
-            </div>
-          </div>
-          <div class="storage-details">
-            <div class="detail-item">
-              <span class="detail-label">总空间</span>
-              <span class="detail-value">{{ formatFileSize(storageInfo.maxSize || 0) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">已用空间</span>
-              <span class="detail-value" :class="{ 'text-error': storagePercent >= 90 }">
-                {{ formatFileSize(storageInfo.totalSize || 0) }}
-              </span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">剩余空间</span>
-              <span class="detail-value">{{ formatFileSize((storageInfo.maxSize || 0) - (storageInfo.totalSize || 0)) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">图片数量</span>
-              <span class="detail-value">{{ (storageInfo.images || []).length }} 张</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="storagePercent >= 90" class="storage-warning">
-          <mdui-icon name="warning"></mdui-icon>
-          <span>存储空间即将用完，建议删除一些不需要的图片</span>
-        </div>
-      </mdui-card>
-
       <!-- 图片列表 -->
-      <div v-if="storageInfo.images && storageInfo.images.length > 0" class="images-section">
-        <h3 class="section-title">我的图片 ({{ storageInfo.images.length }})</h3>
-        
-        <div class="images-grid">
-          <div v-for="image in storageInfo.images" :key="image.id" class="image-card">
-            <div class="image-wrapper">
-              <img :src="image.url" :alt="image.filename" loading="lazy">
-            </div>
-            
-            <div class="image-info">
-              <div class="image-meta">
-                <span class="image-size">{{ formatFileSize(image.size) }}</span>
-                <span class="image-date">{{ formatDate(image.createdAt) }}</span>
-              </div>
-              
-              <div class="image-actions">
-                <mdui-button-icon
-                  icon="content_copy"
-                  title="复制链接"
-                  @click="copyImageUrl(image.url)"
-                ></mdui-button-icon>
-                <mdui-button-icon
-                  icon="delete"
-                  title="删除"
-                  style="color: var(--mdui-color-error);"
-                  @click="deleteImage(image.id)"
-                ></mdui-button-icon>
-              </div>
-            </div>
-          </div>
+      <div v-if="storageInfo.images && storageInfo.images.length > 0" style="margin-top: 20px;">
+        <h3>图片列表</h3>
+        <div v-for="image in storageInfo.images" :key="image.id" style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.2);">
+          <p>ID: {{ image.id }}</p>
+          <p>文件名: {{ image.filename }}</p>
+          <p>大小: {{ formatFileSize(image.size) }}</p>
         </div>
       </div>
+    </div>
 
-      <!-- 文件列表 -->
-      <div v-if="storageInfo.files && storageInfo.files.length > 0" class="files-section">
-        <h3 class="section-title">我的文件 ({{ storageInfo.files.length }})</h3>
-        
-        <div class="files-list">
-          <div v-for="file in storageInfo.files" :key="file.id" class="file-card">
-            <mdui-icon name="insert_drive_file" style="font-size: 40px; color: var(--mdui-color-primary);"></mdui-icon>
-            
-            <div class="file-info">
-              <span class="file-name">{{ file.originalName }}</span>
-              <div class="file-meta">
-                <span class="file-size">{{ formatFileSize(file.size) }}</span>
-                <span class="file-date">{{ formatDate(file.createdAt) }}</span>
-              </div>
-            </div>
-            
-            <div class="file-actions">
-              <mdui-button-icon
-                icon="download"
-                title="下载"
-                @click="downloadFile(file.url)"
-              ></mdui-button-icon>
-              <mdui-button-icon
-                icon="delete"
-                title="删除"
-                style="color: var(--mdui-color-error);"
-                @click="deleteFile(file.id)"
-              ></mdui-button-icon>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 空状态 -->
-      <div v-if="(!storageInfo.images || storageInfo.images.length === 0) && (!storageInfo.files || storageInfo.files.length === 0)" class="empty-state">
-        <mdui-icon name="cloud_upload" style="font-size: 64px; opacity: 0.5;"></mdui-icon>
-        <p>暂无上传内容</p>
-        <p style="font-size: 14px; color: var(--mdui-color-on-surface-variant);">
-          在添加剪贴板时选择"图片"或"文件"类型即可上传
-        </p>
-      </div>
-    </template>
-
-    <!-- 默认状态（storageInfo 为 null 且没有错误） -->
-    <div v-else class="loading-state">
-      <div class="spinner"></div>
-      <p>正在加载存储信息...</p>
+    <!-- 默认状态 -->
+    <div v-else style="padding: 20px; background: orange;">
+      <p>等待数据...</p>
     </div>
   </div>
 </template>
@@ -376,281 +255,5 @@ onMounted(() => {
   overflow-y: auto;
   padding: 16px;
   box-sizing: border-box;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 0 8px;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--mdui-color-on-surface);
-}
-
-.loading-state,
-.error-state,
-.empty-state {
-  text-align: center;
-  padding: 48px 24px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--mdui-color-surface-container-highest);
-  border-top-color: var(--mdui-color-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 16px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.storage-overview {
-  padding: 16px;
-  margin-bottom: 16px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.storage-stats {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-
-.storage-chart {
-  flex-shrink: 0;
-}
-
-.chart-ring {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: conic-gradient(
-    var(--mdui-color-primary) calc(var(--percent) * 1%),
-    var(--mdui-color-surface-container-highest) calc(var(--percent) * 1%)
-  );
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.chart-inner {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: var(--mdui-color-surface);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.chart-percent {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--mdui-color-on-surface);
-}
-
-.chart-label {
-  font-size: 10px;
-  color: var(--mdui-color-on-surface-variant);
-}
-
-.storage-details {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px;
-  background: var(--mdui-color-surface-container);
-  border-radius: 8px;
-}
-
-.detail-item:last-child {
-  border-bottom: none;
-}
-
-.detail-label {
-  font-size: 12px;
-  color: var(--mdui-color-on-surface-variant);
-}
-
-.detail-value {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--mdui-color-on-surface);
-}
-
-.text-error {
-  color: var(--mdui-color-error);
-}
-
-.storage-warning {
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: var(--mdui-color-error-container);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--mdui-color-on-error-container);
-  font-size: 12px;
-}
-
-.images-section {
-  margin-top: 16px;
-}
-
-.section-title {
-  margin: 0 0 16px 0;
-  padding: 0 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--mdui-color-on-surface);
-}
-
-.images-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px;
-}
-
-.image-card {
-  background: var(--mdui-color-surface);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.image-wrapper {
-  width: 100%;
-  height: 160px;
-  overflow: hidden;
-}
-
-.image-wrapper img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.image-wrapper img:hover {
-  transform: scale(1.05);
-}
-
-.image-info {
-  padding: 12px;
-}
-
-.image-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-
-.image-size {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--mdui-color-on-surface);
-}
-
-.image-date {
-  font-size: 12px;
-  color: var(--mdui-color-on-surface-variant);
-}
-
-.image-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-/* 文件列表样式 */
-.files-section {
-  margin-top: 24px;
-}
-
-.files-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.file-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: var(--mdui-color-surface);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.file-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.file-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--mdui-color-on-surface);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.file-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--mdui-color-on-surface-variant);
-}
-
-.file-actions {
-  display: flex;
-  gap: 8px;
-}
-
-@media (max-width: 600px) {
-  .storage-stats {
-    flex-direction: row;
-    align-items: center;
-  }
-  
-  .storage-details {
-    width: 100%;
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .images-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .file-card {
-    padding: 12px;
-  }
 }
 </style>
