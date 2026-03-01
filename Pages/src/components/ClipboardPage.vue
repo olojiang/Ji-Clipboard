@@ -602,6 +602,7 @@ function shareSelected() {
   for (const index of indices) {
     const item = myClipboards.value[index]
     console.log('[shareSelected] 处理 item:', index, item)
+    console.log('[shareSelected] item.id:', item?.id)
     if (item && item.id) {
       selectedIds.push(item.id)
       selectedItemsData.push({
@@ -615,6 +616,8 @@ function shareSelected() {
       } else {
         hasText = true
       }
+    } else {
+      console.log('[shareSelected] item 没有 id，跳过')
     }
   }
 
