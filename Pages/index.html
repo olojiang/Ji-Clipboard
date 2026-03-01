@@ -48,10 +48,12 @@
     </style>
   </head>
   <body>
-    <script src="//cdn.bootcdn.net/ajax/libs/eruda/2.3.3/eruda.js"></script>
-    <script>eruda.init();</script>
-    <!-- Eruda v3.4.3 local -->
-    <script src="/eruda_v3.4.3.js"></script>
+    <script src="/eruda-polyfill.js"></script>
+    <script src="/eruda.js"></script>
+    <script>
+      eruda.init({ plugins: ['monitor', 'timing', 'code', 'vue'] })
+      console.log('Eruda 已初始化！')
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
     <script>
