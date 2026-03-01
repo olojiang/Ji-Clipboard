@@ -1256,6 +1256,7 @@ async function handleGetShare(request, env, corsHeaders) {
   // 新格式：通过 itemIds 获取剪贴板项详情
   let items = [];
   if (share.itemIds && share.itemIds.length > 0) {
+    // 首先尝试从 clipboard_item:${itemId} 获取（新格式）
     for (const itemId of share.itemIds) {
       const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${itemId}`);
       if (itemData) {
@@ -1267,6 +1268,26 @@ async function handleGetShare(request, env, corsHeaders) {
             type: item.type,
             createdAt: item.createdAt
           });
+        }
+      }
+    }
+    
+    // 如果没有找到任何 items，尝试从旧格式获取
+    if (items.length === 0 && share.ownerId) {
+      const userClipboardKey = `user_clipboard:${share.ownerId}`;
+      const clipboardData = await env.CLIPBOARD_KV.get(userClipboardKey);
+      if (clipboardData) {
+        const clipboardItems = JSON.parse(clipboardData);
+        for (const itemId of share.itemIds) {
+          const foundItem = clipboardItems.find(item => item.id === itemId);
+          if (foundItem) {
+            items.push({
+              id: foundItem.id,
+              content: foundItem.content,
+              type: foundItem.type || 'text',
+              createdAt: foundItem.createdAt
+            });
+          }
         }
       }
     }
@@ -1340,6 +1361,7 @@ async function handleGetMySharesList(request, env, corsHeaders) {
     // 如果有 itemIds，获取完整的剪贴板项数据（新格式）
     let items = [];
     if (share.itemIds && share.itemIds.length > 0) {
+      // 首先尝试从 clipboard_item:${itemId} 获取（新格式）
       for (const itemId of share.itemIds) {
         const itemData = await env.CLIPBOARD_KV.get(`clipboard_item:${itemId}`);
         if (itemData) {
@@ -1351,6 +1373,26 @@ async function handleGetMySharesList(request, env, corsHeaders) {
               type: item.type,
               createdAt: item.createdAt
             });
+          }
+        }
+      }
+      
+      // 如果没有找到任何 items，尝试从旧格式获取
+      if (items.length === 0) {
+        const userClipboardKey = `user_clipboard:${userId}`;
+        const clipboardData = await env.CLIPBOARD_KV.get(userClipboardKey);
+        if (clipboardData) {
+          const clipboardItems = JSON.parse(clipboardData);
+          for (const itemId of share.itemIds) {
+            const foundItem = clipboardItems.find(item => item.id === itemId);
+            if (foundItem) {
+              items.push({
+                id: foundItem.id,
+                content: foundItem.content,
+                type: foundItem.type || 'text',
+                createdAt: foundItem.createdAt
+              });
+            }
           }
         }
       }

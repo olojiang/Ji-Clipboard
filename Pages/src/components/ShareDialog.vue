@@ -309,12 +309,15 @@ function handleClose() {
           <div style="font-size: 14px; font-weight: 500; margin-bottom: 12px;">
             查看权限
           </div>
+          <div style="font-size: 10px; color: #999; margin-bottom: 8px;">
+            当前选中: {{ selectedVisibility }}
+          </div>
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <mdui-radio
               v-for="option in visibilityOptions"
               :key="option.value"
               :checked="selectedVisibility === option.value"
-              @change="selectedVisibility = option.value"
+              @change="() => { console.log('[ShareDialog] 选中权限:', option.value); selectedVisibility = option.value }"
             >
               <div style="display: flex; flex-direction: column;">
                 <span style="font-size: 14px;">{{ option.label }}</span>
