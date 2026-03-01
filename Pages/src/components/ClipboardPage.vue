@@ -900,7 +900,6 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
     <template v-else>
       <!-- 多选模式工具栏 -->
       <div v-if="isMultiSelectMode" class="multi-select-toolbar">
-        <span>已选择 {{ selectedItems.size }} 项</span>
         <div class="toolbar-actions">
           <mdui-button variant="text" @click="exitMultiSelectMode">取消</mdui-button>
           <mdui-button variant="outlined" @click="shareSelected" :disabled="selectedItems.size === 0">
@@ -909,6 +908,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
           </mdui-button>
           <mdui-button variant="filled" @click="deleteSelected" :disabled="selectedItems.size === 0">删除</mdui-button>
         </div>
+        <span class="selected-count">已选择 {{ selectedItems.size }} 项</span>
       </div>
 
       <!-- 我的剪贴板列表 -->
@@ -1126,17 +1126,24 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 
 .multi-select-toolbar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   padding: 12px 16px;
   background: var(--mdui-color-primary-container);
   border-radius: 8px;
   margin-bottom: 16px;
+  gap: 8px;
 }
 
 .toolbar-actions {
   display: flex;
   gap: 8px;
+  justify-content: flex-end;
+}
+
+.selected-count {
+  font-size: 12px;
+  color: var(--mdui-color-on-surface-variant);
+  text-align: right;
 }
 
 .clipboard-list-card {
