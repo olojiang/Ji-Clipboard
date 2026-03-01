@@ -200,7 +200,7 @@ function handleUndo() {
       <StoragePage
         v-else-if="currentTab === 'storage'"
         @show-toast="showToastMessage"
-        @back="currentTab = 'profile'"
+        @back="currentTab.value = 'profile'"
       />
 
       <!-- 管理员页面 -->
@@ -216,7 +216,7 @@ function handleUndo() {
         :auth-loading="authLoading"
         @login="loginWithGitHub"
         @logout="logout"
-        @show-storage="() => { console.log('[App] show-storage 事件触发'); currentTab = 'storage' }"
+        @show-storage="() => { console.log('[App] show-storage 事件触发'); currentTab.value = 'storage' }"
       />
     </main>
 
