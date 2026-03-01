@@ -261,12 +261,16 @@ function handleUndo() {
 }
 
 .app-bar {
-  position: relative;
-  flex-shrink: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
 }
 
 .main-content {
   padding: 16px;
+  padding-top: 72px; /* 为固定的 app-bar 留出空间 */
   max-width: 900px;
   margin: 0 auto;
   width: 100%;
