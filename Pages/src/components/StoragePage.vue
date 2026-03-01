@@ -203,8 +203,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="storage-page">
-    <h1 style="color: red; font-size: 24px; padding: 20px;">存储管理页面 - 测试</h1>
+  <div class="storage-page" style="background: blue; min-height: 500px; padding: 20px;">
+    <h1 style="color: red; font-size: 24px; background: yellow; padding: 20px;">存储管理页面 - 测试</h1>
     
     <div style="padding: 10px; background: #f0f0f0; margin: 10px 0;">
       <p><strong>状态信息：</strong></p>
