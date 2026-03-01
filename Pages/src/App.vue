@@ -164,7 +164,7 @@ function handleUndo() {
     <mdui-top-app-bar class="app-bar">
       <mdui-button-icon icon="cloud"></mdui-button-icon>
       <mdui-top-app-bar-title>云剪贴板</mdui-top-app-bar-title>
-      <span style="font-size: 11px; color: rgba(255,255,255,0.6); margin-right: 8px;">版本: 1.1.45</span>
+      <span style="font-size: 11px; color: #aaa; margin-right: 8px;">版本: 1.1.45</span>
       <mdui-button-icon icon="account_circle"></mdui-button-icon>
     </mdui-top-app-bar>
 
