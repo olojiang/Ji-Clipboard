@@ -596,8 +596,11 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
   const clipboardData = await env.CLIPBOARD_KV.get(userClipboardKey);
   let items = clipboardData ? JSON.parse(clipboardData) : [];
 
+  console.log('[handleGetClipboardItems] 旧格式数据条数:', items.length);
+
   // 为旧数据添加 type 字段（从内容推断）和 id 字段
-  items = items.map(item => {
+  let hasNewIds = false;
+  items = items.map((item, index) => {
     if (!item.type) {
       // 如果内容以 [ 开头且包含 http，可能是图片数组
       if (item.content && item.content.startsWith('[') && item.content.includes('http')) {
@@ -612,9 +615,19 @@ async function handleGetClipboardItems(request, env, corsHeaders) {
     // 为旧数据生成 id（如果没有的话）
     if (!item.id) {
       item.id = generateUUID();
+      hasNewIds = true;
+      console.log('[handleGetClipboardItems] 为第', index, '项生成 id:', item.id);
     }
     return item;
   });
+
+  // 如果有新生成的 id，保存回 KV
+  if (hasNewIds) {
+    console.log('[handleGetClipboardItems] 保存更新后的数据到 KV');
+    await env.CLIPBOARD_KV.put(userClipboardKey, JSON.stringify(items));
+  }
+
+  console.log('[handleGetClipboardItems] 返回数据:', items);
 
   // 按创建时间倒序排列
   items.sort((a, b) => b.createdAt - a.createdAt);

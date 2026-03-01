@@ -160,25 +160,27 @@ function copyShareUrl() {
 // 复制分享码
 function copyShareCode() {
   console.log('[ShareDialog] copyShareCode 被调用')
+  console.log('[ShareDialog] shareResult:', shareResult.value)
   if (!shareResult.value) {
     console.log('[ShareDialog] shareResult 为空')
     return
   }
   
-  console.log('[ShareDialog] 复制分享码:', shareResult.value.id)
+  const codeToCopy = shareResult.value.id
+  console.log('[ShareDialog] 准备复制分享码:', codeToCopy, '类型:', typeof codeToCopy)
   
-  navigator.clipboard.writeText(shareResult.value.id).then(() => {
-    console.log('[ShareDialog] 复制成功')
-    emit('showToast', '分享码已复制')
+  navigator.clipboard.writeText(codeToCopy).then(() => {
+    console.log('[ShareDialog] 复制成功:', codeToCopy)
+    emit('showToast', '分享码已复制: ' + codeToCopy)
   }).catch((err) => {
     console.log('[ShareDialog] 复制失败:', err)
     const input = document.createElement('input')
-    input.value = shareResult.value!.id
+    input.value = codeToCopy
     document.body.appendChild(input)
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
-    emit('showToast', '分享码已复制')
+    emit('showToast', '分享码已复制: ' + codeToCopy)
   })
 }
 
