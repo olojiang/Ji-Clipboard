@@ -93,6 +93,41 @@ function getTextPreview(content: string, maxLength: number = 20): string {
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
 }
 
+// 解析分享内容为项目列表
+function parseShareContent(content: string): Array<{ type: string; content: string }> {
+  if (!content) return []
+  
+  // 检查是否是批量分享（包含分隔符 ---）
+  if (!content.includes('\n---\n') && !content.includes('---')) {
+    // 单个分享，检测类型
+    return [{ type: detectType(content), content }]
+  }
+
+  // 批量分享，按分隔符分割
+  const separator = content.includes('\n---\n') ? '\n---\n' : '---'
+  const items = content.split(separator)
+  
+  return items.map(item => {
+    const trimmed = item.trim()
+    if (!trimmed) return null
+    return { type: detectType(trimmed), content: trimmed }
+  }).filter(Boolean) as Array<{ type: string; content: string }>
+}
+
+// 检测内容类型
+function detectType(content: string): string {
+  // 检查是否是图片格式
+  if (content.startsWith('[') && content.includes('http') && content.includes('ji-clipboard')) {
+    return 'image'
+  }
+  // 检查是否是文件格式
+  if ((content.includes('filename') || content.includes('"size"') || content.includes('originalName')) && content.startsWith('{')) {
+    return 'file'
+  }
+  // 默认为文本
+  return 'text'
+}
+
 // 解析图片内容
 function parseImageContent(content: string): string[] {
   try {
@@ -131,7 +166,20 @@ async function fetchAllShares() {
     }
 
     const data = await response.json()
-    shares.value = data.shares || []
+    
+    // 处理分享数据，解析 content 为 items（与我的分享页面一致）
+    shares.value = (data.shares || []).map((share: any) => {
+      // 如果后端已经返回了 items 数组（新格式），直接使用
+      if (share.items && share.items.length > 0) {
+        return share
+      }
+      // 否则从 content 解析（旧格式兼容）
+      const items = parseShareContent(share.content)
+      return {
+        ...share,
+        items
+      }
+    })
   } catch (error) {
     console.error('获取分享列表失败:', error)
     emit('showToast', '获取分享列表失败')
