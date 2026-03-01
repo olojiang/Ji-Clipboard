@@ -1029,7 +1029,8 @@ function openShare(shareId: string) {
 }
 
 .detail-label {
-  font-size: 12px;
+  font-size: 15px;
+  font-weight: 500;
   color: var(--mdui-color-on-surface-variant);
   margin-bottom: 8px;
 }
