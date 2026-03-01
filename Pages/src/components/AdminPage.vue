@@ -769,76 +769,28 @@ function openShare(shareId: string) {
           <!-- 内容 -->
           <div class="detail-section">
             <div class="detail-label">分享内容</div>
-            <!-- 单个分享 -->
-            <div v-if="!selectedShare.items || selectedShare.items.length <= 1" class="detail-content-box">
-              <!-- 新格式：使用 items 数组 -->
-              <template v-if="selectedShare.items && selectedShare.items.length === 1">
-                <div v-if="selectedShare.items[0].type === 'text'" class="markdown-body" v-html="renderMarkdown(selectedShare.items[0].content)"></div>
-                <div v-else-if="selectedShare.items[0].type === 'image'" class="image-share-content">
-                  <div class="image-grid">
-                    <img
-                      v-for="(url, index) in parseImageContent(selectedShare.items[0].content)"
-                      :key="index"
-                      :src="url"
-                      class="share-image"
-                      @click="window.open(url, '_blank')"
-                    >
-                  </div>
-                </div>
-                <div v-else-if="selectedShare.items[0].type === 'file'" class="file-share-content">
-                  <div class="file-card">
-                    <mdui-icon name="insert_drive_file" style="font-size: 64px; color: var(--mdui-color-primary);"></mdui-icon>
-                    <div class="file-info">
-                      <span class="file-name">{{ selectedShare.items[0].content.substring(0, 50) }}{{ selectedShare.items[0].content.length > 50 ? '...' : '' }}</span>
-                    </div>
-                  </div>
-                </div>
-              </template>
-              <!-- 旧格式：使用 content 字符串 -->
-              <template v-else-if="selectedShare.content">
-                <div class="markdown-body" v-html="renderMarkdown(selectedShare.content)"></div>
+            <!-- 使用 items 数组显示（与我的分享页面一致） -->
+            <div v-if="selectedShare.items && selectedShare.items.length > 0" class="detail-content-box">
+              <template v-for="(item, index) in selectedShare.items" :key="index">
+                <span v-if="item.type === 'text'" class="text-content">
+                  {{ getTextPreview(item.content, 50) }}
+                </span>
+                <mdui-chip v-else-if="item.type === 'image'" size="small" variant="outlined" class="image-chip">
+                  <mdui-icon slot="icon" name="image"></mdui-icon>
+                  图片
+                </mdui-chip>
+                <mdui-chip v-else-if="item.type === 'file'" size="small" variant="outlined" class="file-chip">
+                  <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
+                  {{ getTextPreview(item.content, 15) }}
+                </mdui-chip>
               </template>
             </div>
-            <!-- 批量分享 -->
-            <div v-else class="batch-share-content">
-              <div class="batch-share-header">
-                <span class="batch-share-count">共 {{ selectedShare.items.length }} 个项目</span>
-              </div>
-              <mdui-card
-                v-for="(item, index) in selectedShare.items"
-                :key="item.id || index"
-                class="batch-item-card"
-              >
-                <div class="batch-item-header">
-                  <span class="batch-item-number">#{{ index + 1 }}</span>
-                  <mdui-chip size="small" variant="outlined">
-                    {{ item.type === 'image' ? '图片' : item.type === 'file' ? '文件' : '文本' }}
-                  </mdui-chip>
-                </div>
-                <!-- 文本类型 -->
-                <div v-if="item.type === 'text'" class="markdown-body" v-html="renderMarkdown(item.content)"></div>
-                <!-- 图片类型 -->
-                <div v-else-if="item.type === 'image'" class="image-share-content">
-                  <div class="image-grid">
-                    <img
-                      v-for="(url, imgIndex) in parseImageContent(item.content)"
-                      :key="imgIndex"
-                      :src="url"
-                      class="share-image"
-                      @click="window.open(url, '_blank')"
-                    >
-                  </div>
-                </div>
-                <!-- 文件类型 -->
-                <div v-else-if="item.type === 'file'" class="file-share-content">
-                  <div class="file-card">
-                    <mdui-icon name="insert_drive_file" style="font-size: 48px; color: var(--mdui-color-primary);"></mdui-icon>
-                    <div class="file-info">
-                      <span class="file-name">{{ item.content.substring(0, 50) }}{{ item.content.length > 50 ? '...' : '' }}</span>
-                    </div>
-                  </div>
-                </div>
-              </mdui-card>
+            <!-- 旧格式兼容 -->
+            <div v-else-if="selectedShare.content" class="detail-content-box">
+              <span class="text-content">{{ getTextPreview(selectedShare.content, 50) }}</span>
+            </div>
+            <div v-else class="detail-content-box">
+              <span style="color: #999;">无内容</span>
             </div>
           </div>
 
