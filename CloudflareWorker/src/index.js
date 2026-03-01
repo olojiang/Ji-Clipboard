@@ -250,12 +250,6 @@ async function handleGitHubCallback(request, env, corsHeaders) {
   // 生成 session ID
   const sessionId = generateRandomString(32);
 
-  // 检查该用户是否已有会话，如果有则删除旧会话
-  const existingSessionId = await env.AUTH_KV.get(`user_session:${githubUser.id}`);
-  if (existingSessionId) {
-    await env.AUTH_KV.delete(`session:${existingSessionId}`);
-  }
-
   // 存储用户会话到 KV（30天过期）
   const sessionData = {
     userId: githubUser.id,
@@ -270,8 +264,12 @@ async function handleGitHubCallback(request, env, corsHeaders) {
     expirationTtl: 30 * 24 * 60 * 60, // 30天
   });
 
-  // 存储用户ID到会话的映射
-  await env.AUTH_KV.put(`user_session:${githubUser.id}`, sessionId, {
+  // 存储用户ID到会话列表的映射（支持多设备登录）
+  const userSessionsKey = `user_sessions:${githubUser.id}`;
+  const existingSessions = await env.AUTH_KV.get(userSessionsKey);
+  const sessions = existingSessions ? JSON.parse(existingSessions) : [];
+  sessions.push(sessionId);
+  await env.AUTH_KV.put(userSessionsKey, JSON.stringify(sessions), {
     expirationTtl: 30 * 24 * 60 * 60, // 30天
   });
 
@@ -369,6 +367,29 @@ async function handleLogout(request, env, corsHeaders) {
   const sessionId = getCookie(request, 'session_id');
 
   if (sessionId) {
+    // 获取 session 数据以找到 userId
+    const sessionData = await env.AUTH_KV.get(`session:${sessionId}`);
+    if (sessionData) {
+      const user = JSON.parse(sessionData);
+      const userId = user.userId;
+      
+      // 从用户的 session 列表中移除当前 session
+      const userSessionsKey = `user_sessions:${userId}`;
+      const existingSessions = await env.AUTH_KV.get(userSessionsKey);
+      if (existingSessions) {
+        const sessions = JSON.parse(existingSessions);
+        const newSessions = sessions.filter(id => id !== sessionId);
+        if (newSessions.length > 0) {
+          await env.AUTH_KV.put(userSessionsKey, JSON.stringify(newSessions), {
+            expirationTtl: 30 * 24 * 60 * 60,
+          });
+        } else {
+          await env.AUTH_KV.delete(userSessionsKey);
+        }
+      }
+    }
+    
+    // 删除当前 session
     await env.AUTH_KV.delete(`session:${sessionId}`);
   }
 
