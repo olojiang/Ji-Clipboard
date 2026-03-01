@@ -5,6 +5,13 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>云剪贴板</title>
+    <!-- Eruda 调试工具 - 放在最前面确保最先加载 -->
+    <script src="/eruda-polyfill.js"></script>
+    <script src="/eruda.js"></script>
+    <script>
+      eruda.init({ plugins: ['monitor', 'timing', 'code', 'vue'] })
+      console.log('Eruda 已初始化！')
+    </script>
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
     <!-- Inter Font -->
@@ -48,12 +55,6 @@
     </style>
   </head>
   <body>
-    <script src="/eruda-polyfill.js"></script>
-    <script src="/eruda.js"></script>
-    <script>
-      eruda.init({ plugins: ['monitor', 'timing', 'code', 'vue'] })
-      console.log('Eruda 已初始化！')
-    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
     <script>
