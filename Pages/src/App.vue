@@ -131,7 +131,9 @@ async function logout() {
 
 // 切换标签页
 function switchTab(tab: string) {
+  console.log('[App] switchTab 调用前 currentTab:', currentTab.value)
   currentTab.value = tab
+  console.log('[App] switchTab 调用后 currentTab:', currentTab.value)
   window.history.replaceState({}, '', `#${tab}`)
 }
 
@@ -216,7 +218,7 @@ function handleUndo() {
         :auth-loading="authLoading"
         @login="loginWithGitHub"
         @logout="logout"
-        @show-storage="() => { console.log('[App] show-storage 事件触发'); switchTab('storage') }"
+        @show-storage="() => { console.log('[App] show-storage 事件触发，准备调用 switchTab'); switchTab('storage') }"
       />
     </main>
 
@@ -232,7 +234,7 @@ function handleUndo() {
     <!-- 底部导航栏 -->
     <mdui-navigation-bar 
       class="bottom-nav"
-      :value="currentTab"
+      :value="currentTab === 'storage' ? 'profile' : currentTab"
       @change="(e: any) => switchTab(e.target.value)"
     >
       <mdui-navigation-bar-item icon="content_paste" value="clipboard">剪贴板</mdui-navigation-bar-item>
