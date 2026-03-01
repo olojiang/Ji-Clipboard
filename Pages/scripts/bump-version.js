@@ -41,12 +41,17 @@ packageJson.version = newVersion;
 fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
 
 // 生成 version.ts 文件
+const now = new Date();
+const buildTime = now.toISOString();
+const buildDate = now.toISOString().slice(0, 10).replace(/-/g, '');
+
 const versionTsContent = `// 自动生成的版本号文件
 export const APP_VERSION = '${newVersion}'
-export const BUILD_TIME = '${new Date().toISOString()}'
+export const BUILD_TIME = '${buildTime}'
+export const BUILD_DATE = '${buildDate}'
 `;
 
 fs.writeFileSync(versionFilePath, versionTsContent);
 
 console.log(`✅ 版本号已更新: ${packageJson.version} → ${newVersion}`);
-console.log(`📦 Build Time: ${new Date().toLocaleString()}`);
+console.log(`📦 Build Time: ${now.toLocaleString()}`);

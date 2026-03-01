@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { APP_VERSION, BUILD_DATE } from './version'
 import ClipboardPage from './components/ClipboardPage.vue'
 import FetchPage from './components/FetchPage.vue'
 import MySharesPage from './components/MySharesPage.vue'
@@ -13,6 +14,9 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.ol
 
 // 页面基础 URL
 const BASE_URL = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}`
+
+// 版本号 - 使用构建日期
+const BUILD_VERSION = BUILD_DATE || APP_VERSION
 
 // 管理员用户名列表
 const ADMIN_USERS = ['PANDAJSR', 'olojiang']
@@ -164,7 +168,7 @@ function handleUndo() {
     <mdui-top-app-bar class="app-bar">
       <mdui-button-icon icon="cloud"></mdui-button-icon>
       <mdui-top-app-bar-title>云剪贴板</mdui-top-app-bar-title>
-      <span style="font-size: 11px; color: #aaa; margin-right: 8px;">版本: 1.1.45</span>
+      <span style="font-size: 11px; color: #aaa; margin-right: 8px;">版本: {{ BUILD_VERSION }}</span>
       <mdui-button-icon icon="account_circle"></mdui-button-icon>
     </mdui-top-app-bar>
 
