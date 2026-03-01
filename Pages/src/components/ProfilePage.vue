@@ -49,22 +49,39 @@ async function exportClipboardData() {
     
     const jsonStr = JSON.stringify(exportData, null, 2)
     const blob = new Blob([jsonStr], { type: 'application/json' })
-    
-    // 使用 FileSaver.js 的方式下载
     const filename = `clipboard-backup-${new Date().toISOString().split('T')[0]}.json`
     
-    // 尝试使用 msSaveOrOpenBlob (IE/Edge)
+    // 尝试使用 File System Access API (Chrome/Edge)
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: 'JSON 文件',
+            accept: { 'application/json': ['.json'] }
+          }]
+        })
+        const writable = await handle.createWritable()
+        await writable.write(blob)
+        await writable.close()
+        emit('showToast', `已导出 ${exportData.items.length} 条剪贴板数据`)
+        return
+      } catch (err) {
+        // 用户取消或 API 不支持，回退到传统下载方式
+        console.log('File System Access API 失败，使用传统下载方式')
+      }
+    }
+    
+    // 传统下载方式
     if (window.navigator && (window.navigator as any).msSaveOrOpenBlob) {
       (window.navigator as any).msSaveOrOpenBlob(blob, filename)
     } else {
-      // 创建下载链接
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = filename
       document.body.appendChild(a)
       
-      // 使用 setTimeout 确保下载开始
       setTimeout(() => {
         a.click()
         setTimeout(() => {
