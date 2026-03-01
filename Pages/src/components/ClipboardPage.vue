@@ -1161,7 +1161,7 @@ function handleTouchEnd(event: TouchEvent, item: any, index: number) {
 }
 
 .clipboard-list-title {
-  font-size: 12px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--mdui-color-on-surface-variant);
   letter-spacing: 1px;
