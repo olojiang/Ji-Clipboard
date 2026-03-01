@@ -28,6 +28,94 @@ const visibilityOptions = [
   { label: '仅自己可查看', value: 'private', description: '只有你自己能访问' },
 ]
 
+// iOS 兼容的复制函数
+async function copyToClipboard(text: string): Promise<boolean> {
+  console.log('[copyToClipboard] 尝试复制:', text)
+  
+  // 方法1: 使用现代 Clipboard API
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text)
+      console.log('[copyToClipboard] Clipboard API 成功')
+      return true
+    } catch (err) {
+      console.log('[copyToClipboard] Clipboard API 失败:', err)
+    }
+  }
+  
+  // 方法2: 使用 execCommand (iOS Safari 兼容)
+  try {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    
+    // 避免滚动到页面底部
+    textArea.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      border: none;
+      outline: none;
+      boxShadow: none;
+      background: transparent;
+      opacity: 0;
+      pointer-events: none;
+      z-index: -9999;
+    `
+    
+    document.body.appendChild(textArea)
+    
+    // 对于 iOS，需要特殊的选中方式
+    const range = document.createRange()
+    range.selectNodeContents(textArea)
+    
+    const selection = window.getSelection()
+    if (selection) {
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+    
+    textArea.setSelectionRange(0, text.length)
+    textArea.focus()
+    
+    // 执行复制
+    const success = document.execCommand('copy')
+    document.body.removeChild(textArea)
+    
+    if (success) {
+      console.log('[copyToClipboard] execCommand 成功')
+      return true
+    }
+  } catch (err) {
+    console.log('[copyToClipboard] execCommand 失败:', err)
+  }
+  
+  // 方法3: 使用 input 元素 (最后的 fallback)
+  try {
+    const input = document.createElement('input')
+    input.value = text
+    input.style.cssText = 'position:fixed;top:0;left:0;opacity:0;'
+    document.body.appendChild(input)
+    input.select()
+    input.setSelectionRange(0, text.length)
+    
+    const success = document.execCommand('copy')
+    document.body.removeChild(input)
+    
+    if (success) {
+      console.log('[copyToClipboard] input fallback 成功')
+      return true
+    }
+  } catch (err) {
+    console.log('[copyToClipboard] input fallback 失败:', err)
+  }
+  
+  console.log('[copyToClipboard] 所有方法都失败')
+  return false
+}
+
 const selectedExpire = ref(24)
 const selectedVisibility = ref('public')
 const isCreating = ref(false)
@@ -141,24 +229,19 @@ async function createShare() {
 }
 
 // 复制分享链接
-function copyShareUrl() {
+async function copyShareUrl() {
   if (!shareResult.value) return
   
-  navigator.clipboard.writeText(shareResult.value.shareUrl).then(() => {
+  const success = await copyToClipboard(shareResult.value.shareUrl)
+  if (success) {
     emit('showToast', '分享链接已复制')
-  }).catch(() => {
-    const input = document.createElement('input')
-    input.value = shareResult.value!.shareUrl
-    document.body.appendChild(input)
-    input.select()
-    document.execCommand('copy')
-    document.body.removeChild(input)
-    emit('showToast', '分享链接已复制')
-  })
+  } else {
+    emit('showToast', '复制失败，请手动复制')
+  }
 }
 
 // 复制分享码
-function copyShareCode() {
+async function copyShareCode() {
   console.log('[ShareDialog] copyShareCode 被调用')
   console.log('[ShareDialog] shareResult:', shareResult.value)
   if (!shareResult.value) {
@@ -169,23 +252,18 @@ function copyShareCode() {
   const codeToCopy = shareResult.value.id
   console.log('[ShareDialog] 准备复制分享码:', codeToCopy, '类型:', typeof codeToCopy)
   
-  navigator.clipboard.writeText(codeToCopy).then(() => {
+  const success = await copyToClipboard(codeToCopy)
+  if (success) {
     console.log('[ShareDialog] 复制成功:', codeToCopy)
     emit('showToast', '分享码已复制: ' + codeToCopy)
-  }).catch((err) => {
-    console.log('[ShareDialog] 复制失败:', err)
-    const input = document.createElement('input')
-    input.value = codeToCopy
-    document.body.appendChild(input)
-    input.select()
-    document.execCommand('copy')
-    document.body.removeChild(input)
-    emit('showToast', '分享码已复制: ' + codeToCopy)
-  })
+  } else {
+    console.log('[ShareDialog] 复制失败')
+    emit('showToast', '复制失败，请手动复制')
+  }
 }
 
 // 复制分享信息（包含链接和说明）
-function copyShareInfo() {
+async function copyShareInfo() {
   if (!shareResult.value) return
   
   const visibilityText = visibilityOptions.find(v => v.value === selectedVisibility.value)?.label
@@ -198,16 +276,12 @@ function copyShareInfo() {
 有效期：${expireText}
 过期时间：${formatDate(shareResult.value.expiresAt)}`
   
-  navigator.clipboard.writeText(info).then(() => {
-    // 可以显示一个提示
-  }).catch(() => {
-    const input = document.createElement('input')
-    input.value = info
-    document.body.appendChild(input)
-    input.select()
-    document.execCommand('copy')
-    document.body.removeChild(input)
-  })
+  const success = await copyToClipboard(info)
+  if (success) {
+    emit('showToast', '分享信息已复制')
+  } else {
+    emit('showToast', '复制失败，请手动复制')
+  }
 }
 
 // 关闭弹窗并重置状态
