@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import MarkdownIt from 'markdown-it'
 import ClipboardItem from './ClipboardItem.vue'
+
+// 初始化 markdown-it
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true
+})
 
 const emit = defineEmits(['showToast'])
 
@@ -83,6 +91,24 @@ function getTextPreview(content: string, maxLength: number = 20): string {
     }
   }
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+}
+
+// 解析图片内容
+function parseImageContent(content: string): string[] {
+  try {
+    const parsed = JSON.parse(content)
+    if (Array.isArray(parsed)) {
+      return parsed
+    }
+  } catch (e) {
+    // 如果不是 JSON，返回空数组
+  }
+  return []
+}
+
+// 渲染 Markdown 内容
+function renderMarkdown(content: string): string {
+  return md.render(content)
 }
 
 // 获取所有分享
@@ -743,25 +769,76 @@ function openShare(shareId: string) {
           <!-- 内容 -->
           <div class="detail-section">
             <div class="detail-label">分享内容</div>
-            <!-- 使用 items 数组显示 -->
-            <div v-if="selectedShare.items && selectedShare.items.length > 0" class="detail-content-box">
-              <template v-for="(item, index) in selectedShare.items" :key="index">
-                <span v-if="item.type === 'text'" class="text-content">
-                  {{ getTextPreview(item.content, 50) }}
-                </span>
-                <mdui-chip v-else-if="item.type === 'image'" size="small" variant="outlined" class="image-chip">
-                  <mdui-icon slot="icon" name="image"></mdui-icon>
-                  图片
-                </mdui-chip>
-                <mdui-chip v-else-if="item.type === 'file'" size="small" variant="outlined" class="file-chip">
-                  <mdui-icon slot="icon" name="insert_drive_file"></mdui-icon>
-                  {{ getTextPreview(item.content, 15) }}
-                </mdui-chip>
+            <!-- 单个分享 -->
+            <div v-if="!selectedShare.items || selectedShare.items.length <= 1" class="detail-content-box">
+              <!-- 新格式：使用 items 数组 -->
+              <template v-if="selectedShare.items && selectedShare.items.length === 1">
+                <div v-if="selectedShare.items[0].type === 'text'" class="markdown-body" v-html="renderMarkdown(selectedShare.items[0].content)"></div>
+                <div v-else-if="selectedShare.items[0].type === 'image'" class="image-share-content">
+                  <div class="image-grid">
+                    <img
+                      v-for="(url, index) in parseImageContent(selectedShare.items[0].content)"
+                      :key="index"
+                      :src="url"
+                      class="share-image"
+                      @click="window.open(url, '_blank')"
+                    >
+                  </div>
+                </div>
+                <div v-else-if="selectedShare.items[0].type === 'file'" class="file-share-content">
+                  <div class="file-card">
+                    <mdui-icon name="insert_drive_file" style="font-size: 64px; color: var(--mdui-color-primary);"></mdui-icon>
+                    <div class="file-info">
+                      <span class="file-name">{{ selectedShare.items[0].content.substring(0, 50) }}{{ selectedShare.items[0].content.length > 50 ? '...' : '' }}</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <!-- 旧格式：使用 content 字符串 -->
+              <template v-else-if="selectedShare.content">
+                <div class="markdown-body" v-html="renderMarkdown(selectedShare.content)"></div>
               </template>
             </div>
-            <!-- 旧格式 -->
-            <div v-else class="detail-content-box">
-              {{ selectedShare.content }}
+            <!-- 批量分享 -->
+            <div v-else class="batch-share-content">
+              <div class="batch-share-header">
+                <span class="batch-share-count">共 {{ selectedShare.items.length }} 个项目</span>
+              </div>
+              <mdui-card
+                v-for="(item, index) in selectedShare.items"
+                :key="item.id || index"
+                class="batch-item-card"
+              >
+                <div class="batch-item-header">
+                  <span class="batch-item-number">#{{ index + 1 }}</span>
+                  <mdui-chip size="small" variant="outlined">
+                    {{ item.type === 'image' ? '图片' : item.type === 'file' ? '文件' : '文本' }}
+                  </mdui-chip>
+                </div>
+                <!-- 文本类型 -->
+                <div v-if="item.type === 'text'" class="markdown-body" v-html="renderMarkdown(item.content)"></div>
+                <!-- 图片类型 -->
+                <div v-else-if="item.type === 'image'" class="image-share-content">
+                  <div class="image-grid">
+                    <img
+                      v-for="(url, imgIndex) in parseImageContent(item.content)"
+                      :key="imgIndex"
+                      :src="url"
+                      class="share-image"
+                      @click="window.open(url, '_blank')"
+                    >
+                  </div>
+                </div>
+                <!-- 文件类型 -->
+                <div v-else-if="item.type === 'file'" class="file-share-content">
+                  <div class="file-card">
+                    <mdui-icon name="insert_drive_file" style="font-size: 48px; color: var(--mdui-color-primary);"></mdui-icon>
+                    <div class="file-info">
+                      <span class="file-name">{{ item.content.substring(0, 50) }}{{ item.content.length > 50 ? '...' : '' }}</span>
+                    </div>
+                  </div>
+                </div>
+              </mdui-card>
             </div>
           </div>
 
@@ -1042,6 +1119,203 @@ function openShare(shareId: string) {
   display: flex;
   gap: 8px;
   margin-top: 16px;
+}
+
+/* Markdown 渲染样式 */
+.markdown-body {
+  line-height: 1.8;
+  color: var(--mdui-color-on-surface);
+}
+
+.markdown-body :deep(h1) {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--mdui-color-outline);
+}
+
+.markdown-body :deep(h2) {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 28px 0 14px 0;
+  color: var(--mdui-color-primary);
+}
+
+.markdown-body :deep(h3) {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 22px 0 10px 0;
+}
+
+.markdown-body :deep(p) {
+  margin: 0 0 14px 0;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 0 0 14px 0;
+  padding-left: 28px;
+}
+
+.markdown-body :deep(li) {
+  margin: 6px 0;
+}
+
+.markdown-body :deep(code) {
+  background: var(--mdui-color-surface-container-highest);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 0.9em;
+}
+
+.markdown-body :deep(pre) {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.markdown-body :deep(pre code) {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.markdown-body :deep(a) {
+  color: var(--mdui-color-primary);
+  text-decoration: none;
+}
+
+.markdown-body :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-body :deep(blockquote) {
+  border-left: 4px solid var(--mdui-color-primary);
+  margin: 16px 0;
+  padding: 12px 20px;
+  background: var(--mdui-color-surface-container-lowest);
+  font-style: italic;
+}
+
+.markdown-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid var(--mdui-color-outline);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.markdown-body :deep(th) {
+  background: var(--mdui-color-surface-container-highest);
+  font-weight: 600;
+}
+
+/* 批量分享样式 */
+.batch-share-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.batch-share-header {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.batch-share-count {
+  font-size: 14px;
+  color: var(--mdui-color-on-surface-variant);
+  background: var(--mdui-color-surface-container);
+  padding: 6px 16px;
+  border-radius: 16px;
+}
+
+.batch-item-card {
+  padding: 16px;
+  background: var(--mdui-color-surface);
+}
+
+.batch-item-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--mdui-color-surface-container-highest);
+}
+
+.batch-item-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mdui-color-primary);
+  font-family: monospace;
+}
+
+/* 图片分享样式 */
+.image-share-content {
+  padding: 8px 0;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.share-image {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.share-image:hover {
+  transform: scale(1.02);
+}
+
+/* 文件分享样式 */
+.file-share-content {
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.file-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  background: var(--mdui-color-surface-container);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--mdui-color-on-surface);
+  word-break: break-all;
+  max-width: 250px;
 }
 
 .stats-summary {

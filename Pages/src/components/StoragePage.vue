@@ -62,10 +62,16 @@ async function fetchStorageInfo() {
 
   try {
     const sessionId = localStorage.getItem('session_id')
-    let url = `${API_BASE}/api/storage`
-    if (sessionId) {
-      url += `?session=${sessionId}`
+    
+    // 检查是否登录
+    if (!sessionId) {
+      error.value = '请先登录后查看存储管理'
+      isLoading.value = false
+      return
     }
+    
+    let url = `${API_BASE}/api/storage`
+    url += `?session=${sessionId}`
 
     const response = await fetch(url, {
       credentials: 'include',
@@ -73,7 +79,12 @@ async function fetchStorageInfo() {
     })
 
     if (!response.ok) {
-      throw new Error('获取存储信息失败')
+      if (response.status === 401) {
+        error.value = '登录已过期，请重新登录'
+      } else {
+        error.value = '获取存储信息失败'
+      }
+      return
     }
 
     storageInfo.value = await response.json()
