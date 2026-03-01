@@ -139,10 +139,17 @@ async function importClipboardData(event: Event) {
     }
     
     const result = await response.json()
+    
+    if (!result.success) {
+      throw new Error(result.error || '导入失败')
+    }
+    
     emit('showToast', `成功导入 ${result.importedCount || importData.items.length} 条数据`)
     
-    // 刷新页面以显示新数据
-    window.location.reload()
+    // 延迟刷新页面以显示新数据
+    setTimeout(() => {
+      window.location.reload()
+    }, 1500)
   } catch (error) {
     console.error('导入失败:', error)
     emit('showToast', '导入失败：' + (error instanceof Error ? error.message : '未知错误'))
