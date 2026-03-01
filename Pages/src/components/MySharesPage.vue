@@ -143,25 +143,27 @@ async function fetchMyShares() {
 
     const data = await response.json()
     console.log('[fetchMyShares] 获取到的数据:', data)
-    // 处理分享数据，解析内容
-    myShares.value = (data.shares || []).map((share: any) => {
-      console.log('[fetchMyShares] 处理分享:', share.id, 'items:', share.items, 'content:', share.content?.substring(0, 50))
-      // 如果后端已经返回了 items 数组（新格式），直接使用
-      if (share.items && share.items.length > 0) {
+    // 处理分享数据，解析内容，并按时间逆序排列
+    myShares.value = (data.shares || [])
+      .map((share: any) => {
+        console.log('[fetchMyShares] 处理分享:', share.id, 'items:', share.items, 'content:', share.content?.substring(0, 50))
+        // 如果后端已经返回了 items 数组（新格式），直接使用
+        if (share.items && share.items.length > 0) {
+          return {
+            ...share,
+            itemCount: share.items.length
+          }
+        }
+        // 否则从 content 解析（旧格式兼容）
+        const items = parseShareContent(share.content)
+        console.log('[fetchMyShares] 从 content 解析的 items:', items)
         return {
           ...share,
-          itemCount: share.items.length
+          items,
+          itemCount: items.length
         }
-      }
-      // 否则从 content 解析（旧格式兼容）
-      const items = parseShareContent(share.content)
-      console.log('[fetchMyShares] 从 content 解析的 items:', items)
-      return {
-        ...share,
-        items,
-        itemCount: items.length
-      }
-    })
+      })
+      .sort((a: any, b: any) => b.createdAt - a.createdAt)
   } catch (error) {
     console.error('获取分享列表失败:', error)
     mySharesError.value = '获取分享列表失败，请稍后重试'
