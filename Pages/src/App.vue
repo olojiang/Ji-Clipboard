@@ -15,8 +15,15 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://ji-clipboard-worker.ol
 // 页面基础 URL
 const BASE_URL = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}`
 
-// 版本号 - 使用构建日期
-const BUILD_VERSION = BUILD_DATE || APP_VERSION
+// 版本号显示格式
+const versionDisplay = computed(() => {
+  const date = new Date(BUILD_TIME)
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const day = date.getDate().toString().padStart(2, '0')
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${APP_VERSION} ${month}${day} ${hours}:${minutes}`
+})
 
 // 管理员用户名列表
 const ADMIN_USERS = ['PANDAJSR', 'olojiang']
@@ -168,7 +175,7 @@ function handleUndo() {
     <mdui-top-app-bar class="app-bar">
       <mdui-button-icon icon="cloud"></mdui-button-icon>
       <mdui-top-app-bar-title>云剪贴板</mdui-top-app-bar-title>
-      <span style="font-size: 11px; color: #aaa; margin-right: 8px;">版本: {{ BUILD_VERSION }}</span>
+      <span style="font-size: 11px; color: #aaa; margin-right: 8px;">版本: {{ versionDisplay }}</span>
       <mdui-button-icon icon="account_circle"></mdui-button-icon>
     </mdui-top-app-bar>
 
