@@ -591,6 +591,8 @@ async function deleteSelected() {
 // 批量分享选中的项目
 function shareSelected() {
   const indices = Array.from(selectedItems.value).sort((a, b) => a - b)
+  console.log('[shareSelected] 选中的索引:', indices)
+  
   const selectedIds: string[] = []
   let hasImage = false
   let hasFile = false
@@ -599,6 +601,7 @@ function shareSelected() {
 
   for (const index of indices) {
     const item = myClipboards.value[index]
+    console.log('[shareSelected] 处理 item:', index, item)
     if (item && item.id) {
       selectedIds.push(item.id)
       selectedItemsData.push({
@@ -615,9 +618,15 @@ function shareSelected() {
     }
   }
 
+  console.log('[shareSelected] selectedIds:', selectedIds)
+  console.log('[shareSelected] selectedItemsData:', selectedItemsData)
+
   // 存储选中的 itemIds 和完整 items 数据
   batchShareItemIds.value = selectedIds
   batchShareItems.value = selectedItemsData
+  
+  console.log('[shareSelected] batchShareItemIds:', batchShareItemIds.value)
+  console.log('[shareSelected] batchShareItems:', batchShareItems.value)
 
   // 确定分享类型
   if (hasImage && !hasFile && !hasText) {
@@ -627,6 +636,9 @@ function shareSelected() {
   } else {
     batchShareType.value = 'text'
   }
+  
+  console.log('[shareSelected] batchShareType:', batchShareType.value)
+  console.log('[shareSelected] 打开批量分享弹窗')
 
   showBatchShareDialog.value = true
 }

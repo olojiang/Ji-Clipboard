@@ -72,7 +72,15 @@ function getTextPreview(content: string, maxLength: number = 20): string {
 // 创建分享
 async function createShare() {
   // 检查是否有 content 或 itemIds
-  if (!props.content && (!props.itemIds || props.itemIds.length === 0)) return
+  console.log('[ShareDialog] createShare 被调用')
+  console.log('[ShareDialog] props.content:', props.content)
+  console.log('[ShareDialog] props.itemIds:', props.itemIds)
+  console.log('[ShareDialog] props.items:', props.items)
+  
+  if (!props.content && (!props.itemIds || props.itemIds.length === 0)) {
+    console.log('[ShareDialog] 没有内容，返回')
+    return
+  }
 
   isCreating.value = true
   error.value = ''
