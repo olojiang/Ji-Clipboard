@@ -217,6 +217,13 @@ onMounted(() => {
 
     <!-- 存储概览 -->
     <template v-else-if="storageInfo">
+      <!-- 调试信息 -->
+      <div style="padding: 10px; background: #f0f0f0; margin-bottom: 10px;">
+        <p>storageInfo 存在: {{ !!storageInfo }}</p>
+        <p>images 长度: {{ storageInfo.images?.length }}</p>
+        <p>files 长度: {{ storageInfo.files?.length }}</p>
+      </div>
+      
       <mdui-card class="storage-overview">
         <div class="storage-stats">
           <div class="storage-chart">
