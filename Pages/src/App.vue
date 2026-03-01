@@ -211,7 +211,7 @@ function handleUndo() {
         :auth-loading="authLoading"
         @login="loginWithGitHub"
         @logout="logout"
-        @show-storage="currentTab = 'storage'"
+        @show-storage="() => { console.log('[App] show-storage 事件触发'); currentTab = 'storage' }"
       />
     </main>
 
