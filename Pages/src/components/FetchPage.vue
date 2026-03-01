@@ -548,7 +548,7 @@ function closeNotFoundDialog() {
         <h2 class="title">获取分享</h2>
         <p class="subtitle">输入5位提取码或分享码，立即获取分享的内容</p>
 
-        <div style="display: flex; gap: 12px; align-items: stretch;">
+        <div style="display: flex; gap: 12px; align-items: stretch; width: 100%; box-sizing: border-box;">
           <input
             v-model="fetchCodeModel"
             placeholder="5位提取码 / 分享码"
@@ -556,6 +556,7 @@ function closeNotFoundDialog() {
             class="code-input-native"
             style="
               flex: 1;
+              min-width: 0;
               padding: 12px 16px;
               font-size: 16px;
               border: 1px solid var(--mdui-color-outline);
@@ -572,6 +573,7 @@ function closeNotFoundDialog() {
             :loading="isFetching"
             @click="handleFetch"
             style="
+              flex-shrink: 0;
               --mdui-button-height: 48px;
               border-radius: 8px;
               white-space: nowrap;
