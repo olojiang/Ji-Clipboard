@@ -755,7 +755,13 @@ mdui-menu {
 }
 
 .detail-section {
-  margin-bottom: 24px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed #ccc;
+  padding-bottom: 6px;
+}
+
+.detail-section:last-child {
+  border-bottom: none;
 }
 
 .detail-label {
