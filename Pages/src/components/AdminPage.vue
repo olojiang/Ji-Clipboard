@@ -1332,6 +1332,18 @@ function openShare(shareId: string) {
   padding: 16px;
 }
 
+/* PC 屏幕上固定 stats-summary */
+@media (min-width: 768px) {
+  .stats-summary {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--mdui-color-surface);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
 .stat-item {
   display: flex;
   flex-direction: column;
